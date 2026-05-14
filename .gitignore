@@ -1,0 +1,21 @@
+# React / Vite
+client/node_modules/
+client/dist/
+client/.env
+
+# .NET
+server/bin/
+server/obj/
+server/appsettings.Development.json
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Environment
+.env
+
+# OS
+.DS_Store
+Thumbs.db
