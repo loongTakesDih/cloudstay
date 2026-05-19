@@ -10,7 +10,9 @@ public class User
 
     public string PasswordHash { get; set; } = string.Empty;
 
-    public string Role { get; set; } = "Guest";
+    public string Role { get; set; } = "User";
+
+    public bool IsHost { get; set; } = false;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

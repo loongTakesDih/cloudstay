@@ -26,34 +26,20 @@ public class AuthService
             return null;
         }
 
-        var allowedRoles = new[] { "Guest", "Host" };
-
-        var role = allowedRoles.Contains(request.Role)
-            ? request.Role
-            : "Guest";
-
         var user = new User
         {
             Username = request.Username,
             Email = request.Email,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-            Role = role,
+            Role = "User",
+            IsHost = false,
             CreatedAt = DateTime.UtcNow
         };
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        var token = _tokenService.CreateToken(user);
-
-        return new AuthResponseDto
-        {
-            Token = token,
-            UserId = user.Id,
-            Username = user.Username,
-            Email = user.Email,
-            Role = user.Role
-        };
+        return CreateAuthResponse(user);
     }
 
     public async Task<AuthResponseDto?> LoginAsync(LoginRequestDto request)
@@ -76,15 +62,34 @@ public class AuthService
             return null;
         }
 
-        var token = _tokenService.CreateToken(user);
+        return CreateAuthResponse(user);
+    }
 
+    public async Task<AuthResponseDto?> BecomeHostAsync(int userId)
+    {
+        var user = await _context.Users.FindAsync(userId);
+
+        if (user == null)
+        {
+            return null;
+        }
+
+        user.IsHost = true;
+        await _context.SaveChangesAsync();
+
+        return CreateAuthResponse(user);
+    }
+
+    private AuthResponseDto CreateAuthResponse(User user)
+    {
         return new AuthResponseDto
         {
-            Token = token,
+            Token = _tokenService.CreateToken(user),
             UserId = user.Id,
             Username = user.Username,
             Email = user.Email,
-            Role = user.Role
+            Role = user.Role,
+            IsHost = user.IsHost
         };
     }
 }
