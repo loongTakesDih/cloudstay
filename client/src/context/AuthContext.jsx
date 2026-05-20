@@ -50,9 +50,12 @@ export function AuthProvider({ children }) {
 
   const becomeHost = async () => {
     const response = await api.post("/auth/become-host");
-    saveAuth(response.data);
 
-    return "/hosting/dashboard";
+    localStorage.setItem("cloudstay_token", response.data.token);
+    setToken(response.data.token);
+    setUser(response.data.user);
+
+    return response.data;
   };
 
   const logout = () => {
@@ -62,23 +65,22 @@ export function AuthProvider({ children }) {
   };
 
   useEffect(() => {
-    const loadUser = async () => {
-      if (!token) {
+    const loadCurrentUser = async () => {
+      const storedToken = localStorage.getItem("cloudstay_token");
+
+      if (!storedToken) {
         setLoading(false);
         return;
       }
 
       try {
+        setToken(storedToken);
+
         const response = await api.get("/auth/me");
 
-        setUser({
-          userId: response.data.userId,
-          username: response.data.username,
-          email: response.data.email,
-          role: response.data.role,
-          isHost: response.data.isHost,
-        });
-      } catch {
+        setUser(response.data.user ?? response.data);
+      } catch (error) {
+        console.error("Failed to load current user", error);
         localStorage.removeItem("cloudstay_token");
         setToken(null);
         setUser(null);
@@ -87,8 +89,8 @@ export function AuthProvider({ children }) {
       }
     };
 
-    loadUser();
-  }, [token]);
+    loadCurrentUser();
+  }, []);
 
   return (
     <AuthContext.Provider
