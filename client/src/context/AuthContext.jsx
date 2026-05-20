@@ -2,9 +2,54 @@ import { useEffect, useState } from "react";
 import api from "../api/api";
 import { AuthContext } from "./AuthContextDef";
 
+const TOKEN_KEY = "cloudstay_token";
+
+const setAuthToken = (nextToken) => {
+  if (nextToken) {
+    localStorage.setItem(TOKEN_KEY, nextToken);
+    api.defaults.headers.common.Authorization = `Bearer ${nextToken}`;
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+    delete api.defaults.headers.common.Authorization;
+  }
+};
+
+const toBoolean = (value) => {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "string") return value.toLowerCase() === "true";
+  return Boolean(value);
+};
+
+const normalizeAuthResponse = (data) => {
+  const source = data?.user ?? data;
+
+  if (!source) {
+    return {
+      token: data?.token,
+      user: null,
+    };
+  }
+
+  return {
+    token: data?.token,
+    user: {
+      userId: source.userId ?? source.UserId ?? source.id ?? source.Id,
+      username: source.username ?? source.Username ?? "",
+      email: source.email ?? source.Email ?? "",
+      role: source.role ?? source.Role ?? "User",
+      isHost: toBoolean(source.isHost ?? source.IsHost),
+    },
+  };
+};
+
+const isUnauthorizedError = (error) => {
+  const status = error?.response?.status;
+  return status === 401 || status === 403;
+};
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem("cloudstay_token"));
+  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const getRedirectPath = (authUser) => {
@@ -13,16 +58,12 @@ export function AuthProvider({ children }) {
   };
 
   const saveAuth = (authData) => {
-    localStorage.setItem("cloudstay_token", authData.token);
-    setToken(authData.token);
+    const { token: nextToken, user: userData } = normalizeAuthResponse(authData);
 
-    const userData = {
-      userId: authData.userId,
-      username: authData.username,
-      email: authData.email,
-      role: authData.role,
-      isHost: authData.isHost,
-    };
+    if (nextToken) {
+      setAuthToken(nextToken);
+      setToken(nextToken);
+    }
 
     setUser(userData);
 
@@ -50,23 +91,31 @@ export function AuthProvider({ children }) {
 
   const becomeHost = async () => {
     const response = await api.post("/auth/become-host");
+    const { token: nextToken, user: updatedUser } = normalizeAuthResponse(
+      response.data
+    );
 
-    localStorage.setItem("cloudstay_token", response.data.token);
-    setToken(response.data.token);
-    setUser(response.data.user);
+    if (nextToken) {
+      setAuthToken(nextToken);
+      setToken(nextToken);
+    }
 
-    return response.data;
+    if (updatedUser) {
+      setUser(updatedUser);
+    }
+
+    return "/hosting/dashboard";
   };
 
   const logout = () => {
-    localStorage.removeItem("cloudstay_token");
+    setAuthToken(null);
     setToken(null);
     setUser(null);
   };
 
   useEffect(() => {
     const loadCurrentUser = async () => {
-      const storedToken = localStorage.getItem("cloudstay_token");
+      const storedToken = localStorage.getItem(TOKEN_KEY);
 
       if (!storedToken) {
         setLoading(false);
@@ -74,16 +123,21 @@ export function AuthProvider({ children }) {
       }
 
       try {
+        setAuthToken(storedToken);
         setToken(storedToken);
 
         const response = await api.get("/auth/me");
+        const { user: latestUser } = normalizeAuthResponse(response.data);
 
-        setUser(response.data.user ?? response.data);
+        setUser(latestUser);
       } catch (error) {
-        console.error("Failed to load current user", error);
-        localStorage.removeItem("cloudstay_token");
-        setToken(null);
-        setUser(null);
+        if (isUnauthorizedError(error)) {
+          setAuthToken(null);
+          setToken(null);
+          setUser(null);
+        } else {
+          console.warn("Could not refresh current user state", error);
+        }
       } finally {
         setLoading(false);
       }
