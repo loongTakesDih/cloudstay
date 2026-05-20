@@ -80,6 +80,18 @@ public class AuthService
         return CreateAuthResponse(user);
     }
 
+    public async Task<AuthResponseDto?> GetCurrentUserAsync(int userId)
+    {
+        var user = await _context.Users.FindAsync(userId);
+
+        if (user == null)
+        {
+            return null;
+        }
+
+        return CreateAuthResponse(user);
+    }
+
     private AuthResponseDto CreateAuthResponse(User user)
     {
         return new AuthResponseDto
