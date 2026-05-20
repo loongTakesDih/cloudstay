@@ -23,3 +23,6 @@ Thumbs.db
 # AWS Elastic Beanstalk local deployment config
 .elasticbeanstalk/
 aws-beanstalk-tools-defaults.json
+
+# Build outputs
+server/publish/
