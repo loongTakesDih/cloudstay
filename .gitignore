@@ -19,3 +19,7 @@ server/appsettings.Development.json
 # OS
 .DS_Store
 Thumbs.db
+
+# AWS Elastic Beanstalk local deployment config
+.elasticbeanstalk/
+aws-beanstalk-tools-defaults.json
