@@ -48,7 +48,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactDevClient", policy =>
     {
-        policy.WithOrigins("http://localhost:5173")
+        policy.WithOrigins(
+                "http://localhost:5173",
+                "https://cloudstay-lemon.vercel.app"
+              )
               .AllowAnyHeader()
               .AllowAnyMethod();
     });
