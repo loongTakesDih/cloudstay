@@ -64,6 +64,5 @@ function AdminDashboard() {
     </div>
   );
 }
-//testing pull request
 
 export default AdminDashboard;
