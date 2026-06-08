@@ -54,8 +54,11 @@ function HostingDashboard() {
               Add photos, pricing, location, and stay details when listing tools
               are connected.
             </p>
-            <button className="mt-5 rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white">
-              Coming soon
+            <button
+              onClick={() => navigate("/hosting/listings/new")}
+              className="mt-5 rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+            >
+              Create listing
             </button>
           </article>
 

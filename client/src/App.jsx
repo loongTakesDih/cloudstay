@@ -8,6 +8,7 @@ import AdminDashboard from "./pages/admin/AdminDashboard";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import HostingDashboard from "./pages/hosting/HostingDashboard";
+import NewListing from "./pages/hosting/NewListing";
 import UserDashboard from "./pages/user/UserDashboard";
 
 function HomeRedirect() {
@@ -45,7 +46,14 @@ function App() {
               </ProtectedRoute>
             }
           />
-
+          <Route
+            path="/hosting/listings/new"
+            element={
+              <HostCapabilityRoute>
+                <NewListing />
+              </HostCapabilityRoute>
+            }
+          />
           <Route
             path="/hosting/dashboard"
             element={
