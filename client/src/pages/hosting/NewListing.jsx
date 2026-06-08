@@ -1,22 +1,64 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../../api/api";
 import AppHeader from "../../components/AppHeader";
 import { useAuth } from "../../context/useAuth";
 
 function NewListing() {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
+  const [title, setTitle] = useState("");
+  const [location, setLocation] = useState("");
+  const [pricePerNight, setPricePerNight] = useState("");
+  const [description, setDescription] = useState("");
   const [previewImage, setPreviewImage] = useState("");
+  const [imageDataUrl, setImageDataUrl] = useState("");
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleImageChange = (event) => {
     const file = event.target.files?.[0];
 
     if (!file) {
       setPreviewImage("");
+      setImageDataUrl("");
       return;
     }
 
-    setPreviewImage(URL.createObjectURL(file));
+    const reader = new FileReader();
+
+    reader.onloadend = () => {
+      const result = reader.result?.toString() || "";
+      setPreviewImage(result);
+      setImageDataUrl(result);
+    };
+
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError("");
+    setSuccess("");
+    setLoading(true);
+
+    try {
+      await api.post("/properties", {
+        title,
+        location,
+        pricePerNight: Number(pricePerNight),
+        description,
+        imageUrl: imageDataUrl || null,
+      });
+
+      setSuccess("Listing saved successfully.");
+      navigate("/hosting/dashboard");
+    } catch (err) {
+      setError(err.response?.data?.message || "Could not save listing.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -57,7 +99,22 @@ function NewListing() {
         </section>
 
         <section className="mt-8 grid gap-8 lg:grid-cols-[1fr_0.75fr]">
-          <form className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <form
+            onSubmit={handleSubmit}
+            className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm sm:p-8"
+          >
+            {error && (
+              <div className="mb-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                {error}
+              </div>
+            )}
+
+            {success && (
+              <div className="mb-5 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700">
+                {success}
+              </div>
+            )}
+
             <div className="grid gap-5">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">
@@ -65,8 +122,11 @@ function NewListing() {
                 </label>
                 <input
                   type="text"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
                   className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
                   placeholder="Cozy studio near the city center"
+                  required
                 />
               </div>
 
@@ -76,8 +136,11 @@ function NewListing() {
                 </label>
                 <input
                   type="text"
+                  value={location}
+                  onChange={(event) => setLocation(event.target.value)}
                   className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
                   placeholder="Kuala Lumpur, Malaysia"
+                  required
                 />
               </div>
 
@@ -92,8 +155,12 @@ function NewListing() {
                   <input
                     type="number"
                     min="0"
+                    step="0.01"
+                    value={pricePerNight}
+                    onChange={(event) => setPricePerNight(event.target.value)}
                     className="w-full rounded-lg px-4 py-3 text-slate-950 outline-none"
                     placeholder="180"
+                    required
                   />
                 </div>
               </div>
@@ -119,8 +186,11 @@ function NewListing() {
                 </label>
                 <textarea
                   rows="6"
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
                   className="w-full resize-none rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
                   placeholder="Describe the space, nearby attractions, check-in details, and anything guests should know."
+                  required
                 />
               </div>
             </div>
@@ -134,10 +204,11 @@ function NewListing() {
                 Cancel
               </button>
               <button
-                type="button"
+                type="submit"
+                disabled={loading}
                 className="rounded-lg bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
               >
-                Save Listing
+                {loading ? "Saving..." : "Save Listing"}
               </button>
             </div>
           </form>
@@ -156,19 +227,21 @@ function NewListing() {
               )}
             </div>
             <h3 className="mt-5 text-xl font-bold tracking-normal text-slate-950">
-              Your stay title
+              {title || "Your stay title"}
             </h3>
-            <p className="mt-2 text-sm text-slate-500">Location appears here</p>
+            <p className="mt-2 text-sm text-slate-500">
+              {location || "Location appears here"}
+            </p>
             <p className="mt-4 text-sm leading-6 text-slate-600">
-              Once this page is connected to state and the backend, this preview
-              can update while the host types.
+              {description ||
+                "Add a description to preview what guests will read about this stay."}
             </p>
             <div className="mt-5 rounded-lg border border-slate-200 bg-[#fffaf7] p-4">
               <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
                 Starting from
               </p>
               <p className="mt-1 text-2xl font-bold tracking-normal text-slate-950">
-                RM 0
+                RM {pricePerNight || "0"}
               </p>
               <p className="text-sm text-slate-500">per night</p>
             </div>
