@@ -9,6 +9,7 @@ import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import HostingDashboard from "./pages/hosting/HostingDashboard";
 import NewListing from "./pages/hosting/NewListing";
+import ViewListing from "./pages/hosting/ViewListing";
 import UserDashboard from "./pages/user/UserDashboard";
 
 function HomeRedirect() {
@@ -51,6 +52,14 @@ function App() {
             element={
               <HostCapabilityRoute>
                 <NewListing />
+              </HostCapabilityRoute>
+            }
+          />
+          <Route
+            path="/hosting/listings"
+            element={
+              <HostCapabilityRoute>
+                <ViewListing />
               </HostCapabilityRoute>
             }
           />

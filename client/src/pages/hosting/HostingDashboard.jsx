@@ -70,9 +70,12 @@ function HostingDashboard() {
             <p className="mt-3 text-sm leading-6 text-slate-600">
               Active, draft, and paused properties will be grouped here.
             </p>
-            <div className="mt-5 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-              No listings yet
-            </div>
+            <button
+              onClick={() => navigate("/hosting/listings")}
+              className="mt-5 rounded-lg border border-rose-500 bg-rose-500 p-4 text-left text-sm font-semibold text-white transition hover:bg-rose-600"
+            >
+              View my listings
+            </button>
           </article>
 
           <article className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">

@@ -8,7 +8,12 @@ function NewListing() {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
   const [title, setTitle] = useState("");
-  const [location, setLocation] = useState("");
+  const [houseNumber, setHouseNumber] = useState("");
+  const [streetName1, setStreetName1] = useState("");
+  const [streetName2, setStreetName2] = useState("");
+  const [postcode, setPostcode] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
   const [pricePerNight, setPricePerNight] = useState("");
   const [description, setDescription] = useState("");
   const [previewImage, setPreviewImage] = useState("");
@@ -42,6 +47,23 @@ function NewListing() {
     setError("");
     setSuccess("");
     setLoading(true);
+
+    if (!/^\d{5}$/.test(postcode)) {
+      setError("Postcode must be exactly 5 digits.");
+      setLoading(false);
+      return;
+    }
+
+    const postcodeAndCity = [postcode, city.trim()].filter(Boolean).join(" ");
+    const location = [
+      houseNumber.trim(),
+      streetName1.trim(),
+      streetName2.trim(),
+      postcodeAndCity,
+      state.trim(),
+    ]
+      .filter(Boolean)
+      .join(", ");
 
     try {
       await api.post("/properties", {
@@ -132,16 +154,68 @@ function NewListing() {
 
               <div>
                 <label className="mb-2 block text-sm font-semibold text-slate-700">
-                  Location
+                  Address
                 </label>
-                <input
-                  type="text"
-                  value={location}
-                  onChange={(event) => setLocation(event.target.value)}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
-                  placeholder="Kuala Lumpur, Malaysia"
-                  required
-                />
+                <div className="grid gap-3">
+                  <div className="grid gap-3 sm:grid-cols-[0.5fr_1.5fr]">
+                    <input
+                      type="text"
+                      value={houseNumber}
+                      onChange={(event) => setHouseNumber(event.target.value)}
+                      className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+                      placeholder="House number"
+                      required
+                    />
+                    <input
+                      type="text"
+                      value={streetName1}
+                      onChange={(event) => setStreetName1(event.target.value)}
+                      className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+                      placeholder="Street name 1"
+                      required
+                    />
+                  </div>
+
+                  <input
+                    type="text"
+                    value={streetName2}
+                    onChange={(event) => setStreetName2(event.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+                    placeholder="Street name 2, building, or area"
+                  />
+
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      maxLength="5"
+                      pattern="\d{5}"
+                      value={postcode}
+                      onChange={(event) =>
+                        setPostcode(event.target.value.replace(/\D/g, ""))
+                      }
+                      className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+                      placeholder="Postcode"
+                      required
+                    />
+                    <input
+                      type="text"
+                      value={city}
+                      onChange={(event) => setCity(event.target.value)}
+                      className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+                      placeholder="City"
+                      required
+                    />
+                    <input
+                      type="text"
+                      value={state}
+                      onChange={(event) => setState(event.target.value)}
+                      className="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+                      placeholder="State"
+                      required
+                    />
+                  </div>
+                </div>
               </div>
 
               <div>
@@ -189,7 +263,7 @@ function NewListing() {
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
                   className="w-full resize-none rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-950 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
-                  placeholder="Describe the space, nearby attractions, check-in details, and anything guests should know."
+                  placeholder="Describe the space, nearby attractions, check-in details, and anything guests should know. Also recommended to include extra facilities like Wi-Fi, parking, or breakfast."
                   required
                 />
               </div>
@@ -230,7 +304,8 @@ function NewListing() {
               {title || "Your stay title"}
             </h3>
             <p className="mt-2 text-sm text-slate-500">
-              {location || "Location appears here"}
+              {[streetName1, city, state].filter(Boolean).join(", ") ||
+                "Location appears here"}
             </p>
             <p className="mt-4 text-sm leading-6 text-slate-600">
               {description ||
