@@ -68,11 +68,11 @@ function HostingDashboard() {
               My listings
             </h3>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              Active, draft, and paused properties will be grouped here.
+              Any active, draft, and paused properties will be grouped accordingly here.
             </p>
             <button
               onClick={() => navigate("/hosting/listings")}
-              className="mt-5 rounded-lg border border-rose-500 bg-rose-500 p-4 text-left text-sm font-semibold text-white transition hover:bg-rose-600"
+              className="mt-5 rounded-lg border border-rose-500 bg-rose-500 p-2 text-left text-sm font-semibold text-white transition hover:bg-rose-600"
             >
               View my listings
             </button>
