@@ -1,13 +1,12 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import HostCapabilityRoute from "./components/HostCapabilityRoute";
 import ProtectedRoute from "./components/ProtectedRoute";
-import RoleRoute from "./components/RoleRoute";
 import { AuthProvider } from "./context/AuthContext";
 import { useAuth } from "./context/useAuth";
-import AdminDashboard from "./pages/admin/AdminDashboard";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import HostingDashboard from "./pages/hosting/HostingDashboard";
+import ProfilePage from "./pages/user/ProfilePage";
 import UserDashboard from "./pages/user/UserDashboard";
 
 function HomeRedirect() {
@@ -47,22 +46,20 @@ function App() {
           />
 
           <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/hosting/dashboard"
             element={
               <HostCapabilityRoute>
                 <HostingDashboard />
               </HostCapabilityRoute>
-            }
-          />
-
-          <Route
-            path="/admin/dashboard"
-            element={
-              <ProtectedRoute>
-                <RoleRoute allowedRoles={["Admin"]}>
-                  <AdminDashboard />
-                </RoleRoute>
-              </ProtectedRoute>
             }
           />
 

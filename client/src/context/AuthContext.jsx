@@ -38,6 +38,7 @@ const normalizeAuthResponse = (data) => {
       email: source.email ?? source.Email ?? "",
       role: source.role ?? source.Role ?? "User",
       isHost: toBoolean(source.isHost ?? source.IsHost),
+      createdAt: source.createdAt ?? source.CreatedAt ?? source.created_at,
     },
   };
 };
@@ -52,8 +53,7 @@ export function AuthProvider({ children }) {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const getRedirectPath = (authUser) => {
-    if (authUser?.role === "Admin") return "/admin/dashboard";
+  const getRedirectPath = () => {
     return "/dashboard";
   };
 

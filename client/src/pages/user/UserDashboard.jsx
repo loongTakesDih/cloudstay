@@ -18,6 +18,12 @@ function UserDashboard() {
         subtitle="Plan stays, review trips, and manage hosting from one place."
         actions={
           <>
+            <button
+              onClick={() => navigate("/profile")}
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+            >
+              Profile
+            </button>
             <span className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600">
               {user?.isHost ? "Host enabled" : "Guest account"}
             </span>
