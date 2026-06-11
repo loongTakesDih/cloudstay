@@ -120,13 +120,4 @@ public class AuthController : ControllerBase
         });
     }
 
-    [Authorize(Roles = "Admin")]
-    [HttpGet("admin-test")]
-    public IActionResult AdminTest()
-    {
-        return Ok(new
-        {
-            message = "Admin access granted."
-        });
-    }
 }
