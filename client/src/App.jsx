@@ -6,6 +6,8 @@ import { useAuth } from "./context/useAuth";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import HostingDashboard from "./pages/hosting/HostingDashboard";
+import NewListing from "./pages/hosting/NewListing";
+import ViewListing from "./pages/hosting/ViewListing";
 import ProfilePage from "./pages/user/ProfilePage";
 import UserDashboard from "./pages/user/UserDashboard";
 
@@ -59,6 +61,24 @@ function App() {
             element={
               <HostCapabilityRoute>
                 <HostingDashboard />
+              </HostCapabilityRoute>
+            }
+          />
+
+          <Route
+            path="/hosting/listings"
+            element={
+              <HostCapabilityRoute>
+                <ViewListing />
+              </HostCapabilityRoute>
+            }
+          />
+
+          <Route
+            path="/hosting/listings/new"
+            element={
+              <HostCapabilityRoute>
+                <NewListing />
               </HostCapabilityRoute>
             }
           />
