@@ -14,68 +14,80 @@ function WizardShell({
   progress,
   progressLabel,
 }) {
+  const percent = Math.round(progress * 100);
+
   return (
-    <div className="min-h-screen bg-[#fffaf7] text-slate-950">
-      <header className="fixed inset-x-0 top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <div className="min-h-screen bg-[linear-gradient(135deg,#fffaf7_0%,#fff1ec_48%,#f8fafc_100%)] text-slate-950">
+      <header className="fixed inset-x-0 top-0 z-20 border-b border-white/70 bg-white/85 shadow-sm shadow-rose-100/40 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
           <button
             type="button"
             onClick={onExit}
-            className="text-xl font-bold tracking-normal text-rose-500"
+            className="rounded-full px-2 text-xl font-bold tracking-normal text-rose-500 transition hover:text-rose-600"
           >
             CloudStay
           </button>
           <button
             type="button"
             onClick={onExit}
-            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+            className="rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
           >
             Exit
           </button>
         </div>
-        <div className="grid grid-cols-3 gap-1 bg-slate-100">
-          {[0, 1, 2].map((section) => {
-            const start = section / 3;
-            const end = (section + 1) / 3;
-            const localProgress = Math.min(
-              1,
-              Math.max(0, (progress - start) / (end - start))
-            );
+        <div className="border-t border-white/70 bg-white/60 px-4 py-3">
+          <div className="mx-auto flex max-w-6xl items-center gap-4">
+            <div className="grid flex-1 grid-cols-3 gap-2">
+              {[0, 1, 2].map((section) => {
+                const start = section / 3;
+                const end = (section + 1) / 3;
+                const localProgress = Math.min(
+                  1,
+                  Math.max(0, (progress - start) / (end - start))
+                );
 
-            return (
-              <div key={section} className="h-1.5 overflow-hidden bg-slate-100">
-                <div
-                  className="h-full bg-rose-500 transition-all duration-300 ease-out"
-                  style={{ width: `${localProgress * 100}%` }}
-                />
-              </div>
-            );
-          })}
+                return (
+                  <div
+                    key={section}
+                    className="h-2 overflow-hidden rounded-full bg-slate-200/80"
+                  >
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-rose-500 via-rose-400 to-amber-300 shadow-[0_0_16px_rgba(244,63,94,0.35)] transition-all duration-500 ease-out"
+                      style={{ width: `${localProgress * 100}%` }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+            <span className="hidden min-w-12 text-right text-xs font-bold text-slate-500 sm:block">
+              {percent}%
+            </span>
+          </div>
         </div>
       </header>
 
       <form onSubmit={onSubmit}>
-        <main className="mx-auto flex min-h-screen max-w-4xl items-center px-4 pb-32 pt-28 sm:px-6 lg:px-8">
+        <main className="mx-auto flex min-h-screen max-w-6xl items-center px-4 pb-32 pt-32 sm:px-6 lg:px-8">
           <section
             key={progressLabel}
-            className="w-full animate-[fadeIn_220ms_ease-out]"
+            className="w-full animate-[fadeSlide_260ms_ease-out]"
           >
             {children}
             {error && (
-              <div className="mt-8 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+              <div className="mt-8 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-semibold text-red-700 shadow-sm">
                 {error}
               </div>
             )}
           </section>
         </main>
 
-        <footer className="fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur">
+        <footer className="fixed inset-x-0 bottom-0 z-20 border-t border-white/70 bg-white/90 shadow-[0_-12px_30px_rgba(15,23,42,0.06)] backdrop-blur-xl">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-8">
             <button
               type="button"
               onClick={onBack}
               disabled={!canGoBack}
-              className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+              className="rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-40"
             >
               {backLabel}
             </button>
@@ -88,7 +100,7 @@ function WizardShell({
               <button
                 type="submit"
                 disabled={!canGoNext || isSubmitting}
-                className="rounded-lg bg-rose-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+                className="rounded-full bg-gradient-to-r from-rose-500 to-rose-600 px-7 py-3 text-sm font-bold text-white shadow-lg shadow-rose-200 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl disabled:cursor-not-allowed disabled:from-slate-300 disabled:to-slate-300 disabled:shadow-none"
               >
                 {isSubmitting ? "Saving..." : nextLabel}
               </button>
@@ -97,7 +109,7 @@ function WizardShell({
                 type="button"
                 onClick={onNext}
                 disabled={!canGoNext}
-                className="rounded-lg bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                className="rounded-full bg-slate-950 px-7 py-3 text-sm font-bold text-white shadow-lg shadow-slate-200 transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-xl disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
               >
                 {nextLabel}
               </button>

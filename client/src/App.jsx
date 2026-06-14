@@ -9,6 +9,7 @@ import HostOnboarding from "./pages/host/HostOnboarding";
 import HostingDashboard from "./pages/hosting/HostingDashboard";
 import NewListing from "./pages/hosting/NewListing";
 import ViewListing from "./pages/hosting/ViewListing";
+import PropertyDetails from "./pages/properties/PropertyDetails";
 import ProfilePage from "./pages/user/ProfilePage";
 import UserDashboard from "./pages/user/UserDashboard";
 
@@ -64,6 +65,11 @@ function App() {
                 <HostOnboarding />
               </ProtectedRoute>
             }
+          />
+
+          <Route
+            path="/properties/:id"
+            element={<PropertyDetails />}
           />
 
           <Route

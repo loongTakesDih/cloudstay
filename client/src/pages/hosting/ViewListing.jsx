@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   deleteListing,
   getMyListings,
@@ -62,8 +62,22 @@ const buildEditForm = (listing) => ({
   isAvailable: listing.isAvailable ?? true,
 });
 
+const tabMeta = {
+  unlisted: {
+    label: "Unlisted",
+    icon: "📝",
+    helper: "Drafts waiting for review",
+  },
+  listed: {
+    label: "Listed",
+    icon: "🌍",
+    helper: "Public stays guests can see",
+  },
+};
+
 function ViewListing() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { logout, user } = useAuth();
   const [listings, setListings] = useState([]);
   const [activeTab, setActiveTab] = useState("unlisted");
@@ -121,6 +135,23 @@ function ViewListing() {
       )
     );
   };
+
+  useEffect(() => {
+    const editId = Number(searchParams.get("edit"));
+
+    if (!editId || listings.length === 0) return;
+
+    const listingToEdit = listings.find((listing) => listing.id === editId);
+
+    if (listingToEdit) {
+      Promise.resolve().then(() => {
+        setEditingId(listingToEdit.id);
+        setEditForm(buildEditForm(listingToEdit));
+        setActiveTab(listingToEdit.isListed ? "listed" : "unlisted");
+        setSearchParams({});
+      });
+    }
+  }, [listings, searchParams, setSearchParams]);
 
   const handlePublish = async (listing) => {
     setError("");
@@ -201,7 +232,7 @@ function ViewListing() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fffaf7] text-slate-950">
+    <div className="min-h-screen bg-[linear-gradient(135deg,#fffaf7_0%,#fff1ec_52%,#f8fafc_100%)] text-slate-950">
       <AppHeader
         eyebrow="Inventory"
         title="My listings"
@@ -210,19 +241,19 @@ function ViewListing() {
           <>
             <button
               onClick={() => navigate("/hosting/listings/new")}
-              className="rounded-lg bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-600"
+              className="rounded-full bg-gradient-to-r from-rose-500 to-rose-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-rose-200 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl"
             >
               Create Listing
             </button>
             <button
               onClick={() => navigate("/hosting/dashboard")}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
             >
               Hosting Dashboard
             </button>
             <button
               onClick={logout}
-              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
             >
               Logout
             </button>
@@ -231,25 +262,71 @@ function ViewListing() {
       />
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="flex flex-wrap gap-2">
+        <section className="rounded-3xl border border-white/80 bg-white/80 p-6 shadow-xl shadow-rose-100/50 sm:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-normal text-rose-500">
+                Listing studio
+              </p>
+              <h2 className="mt-3 text-3xl font-bold tracking-normal text-slate-950">
+                Review, publish, and refine your stays.
+              </h2>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600">
+                Unlisted stays are private drafts. Listed stays are visible to guests.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:min-w-72">
+              <div className="rounded-2xl bg-amber-50 p-4">
+                <p className="text-xs font-bold uppercase tracking-normal text-amber-700">
+                  Drafts
+                </p>
+                <p className="mt-1 text-3xl font-bold text-slate-950">
+                  {counts.unlisted}
+                </p>
+              </div>
+              <div className="rounded-2xl bg-emerald-50 p-4">
+                <p className="text-xs font-bold uppercase tracking-normal text-emerald-700">
+                  Public
+                </p>
+                <p className="mt-1 text-3xl font-bold text-slate-950">
+                  {counts.listed}
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="mt-6 grid gap-3 rounded-3xl border border-white/80 bg-white/75 p-2 shadow-lg shadow-rose-100/40 sm:grid-cols-2">
           {["unlisted", "listed"].map((tab) => (
             <button
               key={tab}
               type="button"
               onClick={() => setActiveTab(tab)}
-              className={`rounded-lg px-4 py-2 text-sm font-semibold capitalize transition ${
+              className={`rounded-2xl px-5 py-4 text-left transition-all duration-300 ${
                 activeTab === tab
-                  ? "bg-slate-950 text-white"
-                  : "border border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                  ? "bg-slate-950 text-white shadow-xl shadow-slate-200"
+                  : "bg-white/70 text-slate-700 hover:-translate-y-0.5 hover:bg-white hover:shadow-md"
               }`}
             >
-              {tab} ({counts[tab]})
+              <span className="flex items-center justify-between gap-3">
+                <span className="text-sm font-bold">
+                  <span aria-hidden="true">{tabMeta[tab].icon}</span>{" "}
+                  {tabMeta[tab].label} ({counts[tab]})
+                </span>
+              </span>
+              <span
+                className={`mt-1 block text-xs font-semibold ${
+                  activeTab === tab ? "text-slate-300" : "text-slate-500"
+                }`}
+              >
+                {tabMeta[tab].helper}
+              </span>
             </button>
           ))}
         </div>
 
         {error && (
-          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-700">
+          <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700 shadow-sm">
             {error}
           </div>
         )}
@@ -257,7 +334,7 @@ function ViewListing() {
         {editingId && editForm && (
           <form
             onSubmit={handleSaveEdit}
-            className="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm"
+            className="mt-6 rounded-3xl border border-white/80 bg-white/85 p-6 shadow-xl shadow-rose-100/50"
           >
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <h2 className="text-xl font-bold tracking-normal text-slate-950">
@@ -281,7 +358,7 @@ function ViewListing() {
                 type="text"
                 value={editForm.title}
                 onChange={(event) => updateEditForm("title", event.target.value)}
-                className="rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
                 placeholder="Listing title"
                 required
               />
@@ -292,7 +369,7 @@ function ViewListing() {
                 onChange={(event) =>
                   updateEditForm("pricePerNight", event.target.value)
                 }
-                className="rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
                 placeholder="Price per night"
                 required
               />
@@ -303,7 +380,7 @@ function ViewListing() {
                   updateEditForm("address", event.target.value);
                   updateEditForm("location", event.target.value);
                 }}
-                className="rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100 md:col-span-2"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100 md:col-span-2"
                 placeholder="Address"
                 required
               />
@@ -313,7 +390,7 @@ function ViewListing() {
                 onChange={(event) =>
                   updateEditForm("availableFrom", event.target.value)
                 }
-                className="rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
                 required
               />
               <input
@@ -322,7 +399,7 @@ function ViewListing() {
                 onChange={(event) =>
                   updateEditForm("availableTo", event.target.value)
                 }
-                className="rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
                 required
               />
               <textarea
@@ -331,7 +408,7 @@ function ViewListing() {
                 onChange={(event) =>
                   updateEditForm("description", event.target.value)
                 }
-                className="resize-none rounded-lg border border-slate-300 px-4 py-3 outline-none focus:border-rose-400 focus:ring-4 focus:ring-rose-100 md:col-span-2"
+                className="resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100 md:col-span-2"
                 placeholder="Description"
                 required
               />
@@ -344,14 +421,14 @@ function ViewListing() {
                   setEditingId(null);
                   setEditForm(null);
                 }}
-                className="rounded-lg border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                className="rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
               >
                 Cancel
               </button>
               <button
                 type="submit"
                 disabled={saving}
-                className="rounded-lg bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                className="rounded-full bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-200 transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
               >
                 {saving ? "Saving..." : "Save changes"}
               </button>
@@ -361,21 +438,33 @@ function ViewListing() {
 
         <section className="mt-8">
           {loading && (
-            <div className="rounded-lg border border-slate-200 bg-white p-6 text-sm text-slate-600 shadow-sm">
+            <div className="rounded-3xl border border-white/80 bg-white/80 p-8 text-sm font-semibold text-slate-600 shadow-xl shadow-rose-100/40">
               Loading listings...
             </div>
           )}
 
           {!loading && filteredListings.length === 0 && (
-            <div className="rounded-lg border border-dashed border-slate-300 bg-white p-8 text-center shadow-sm">
-              <h3 className="text-xl font-bold tracking-normal text-slate-950">
-                No {activeTab} listings
+            <div className="rounded-3xl border border-dashed border-rose-200 bg-white/80 p-10 text-center shadow-xl shadow-rose-100/40">
+              <div className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-rose-50 text-3xl">
+                <span aria-hidden="true">{tabMeta[activeTab].icon}</span>
+              </div>
+              <h3 className="mt-5 text-2xl font-bold tracking-normal text-slate-950">
+                No {tabMeta[activeTab].label.toLowerCase()} listings
               </h3>
-              <p className="mt-2 text-sm leading-6 text-slate-600">
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-600">
                 {activeTab === "unlisted"
-                  ? "New onboarding listings will appear here first."
-                  : "Publish an unlisted stay when it is ready for guests."}
+                  ? "New listings start here as private drafts while you review the details."
+                  : "Publish an unlisted stay when it is polished and ready for guests."}
               </p>
+              {activeTab === "unlisted" && (
+                <button
+                  type="button"
+                  onClick={() => navigate("/hosting/listings/new")}
+                  className="mt-6 rounded-full bg-rose-500 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-rose-200 transition-all duration-300 hover:-translate-y-0.5 hover:bg-rose-600 hover:shadow-xl"
+                >
+                  Create listing
+                </button>
+              )}
             </div>
           )}
 
@@ -384,109 +473,98 @@ function ViewListing() {
               {filteredListings.map((listing) => (
                 <article
                   key={listing.id}
-                  className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm"
+                  className="group overflow-hidden rounded-2xl bg-white text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
                 >
-                  <div className="aspect-[4/3] bg-[#fffaf7]">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/properties/${listing.id}`)}
+                    className="block w-full text-left"
+                  >
+                    <div className="relative aspect-[4/3] overflow-hidden bg-[#fffaf7]">
                     {listing.imageUrl ? (
                       <img
                         src={listing.imageUrl}
                         alt={listing.title}
-                        className="h-full w-full object-cover"
+                        className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                       />
                     ) : (
-                      <div className="flex h-full items-center justify-center text-sm text-slate-400">
-                        No photo
+                      <div className="flex h-full items-center justify-center bg-slate-100 text-sm font-bold text-slate-400">
+                        <span className="rounded-xl bg-white px-4 py-3">
+                          Photo placeholder
+                        </span>
                       </div>
                     )}
-                  </div>
-
-                  <div className="p-5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-semibold text-rose-500">
-                          {listing.address || listing.location}
-                        </p>
-                        <h3 className="mt-2 text-xl font-bold tracking-normal text-slate-950">
-                          {listing.title}
-                        </h3>
-                      </div>
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-bold ${
-                          listing.isListed
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-amber-50 text-amber-700"
-                        }`}
-                      >
-                        {listing.isListed ? "Listed" : "Unlisted"}
-                      </span>
+                    <span
+                      className={`absolute left-3 top-3 rounded-full px-3 py-1 text-xs font-bold ${
+                        listing.isListed
+                          ? "bg-white/90 text-emerald-700"
+                          : "bg-white/90 text-amber-700"
+                      }`}
+                    >
+                      {listing.isListed ? "Active public" : "Draft review"}
+                    </span>
                     </div>
+                    <div className="px-4 py-3.5">
+                      <h3 className="line-clamp-1 text-[15px] font-bold leading-5 text-slate-900">
+                        {listing.title}
+                      </h3>
+                      <p className="mt-1 text-[13px] font-semibold leading-5 text-slate-600">
+                        RM {listing.pricePerNight} per night
+                      </p>
+                      <p className="mt-1 line-clamp-1 text-xs font-semibold text-slate-500">
+                        {listing.address || listing.location}
+                      </p>
+                      <p className="mt-2 text-xs font-semibold text-slate-500">
+                        {listing.guestCount || 0} guests ·{" "}
+                        {listing.bedroomCount || 0} bedrooms ·{" "}
+                        {listing.bathroomCount || 0} baths
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">
+                        {formatDate(listing.availableFrom)} -{" "}
+                        {formatDate(listing.availableTo)}
+                      </p>
+                    </div>
+                  </button>
 
-                    <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">
-                      {listing.description}
-                    </p>
-
-                    <dl className="mt-5 grid grid-cols-2 gap-3 text-sm">
-                      <div className="rounded-lg bg-slate-50 p-3">
-                        <dt className="font-semibold text-slate-500">Price</dt>
-                        <dd className="mt-1 font-bold text-slate-950">
-                          RM {listing.pricePerNight}
-                        </dd>
-                      </div>
-                      <div className="rounded-lg bg-slate-50 p-3">
-                        <dt className="font-semibold text-slate-500">Basics</dt>
-                        <dd className="mt-1 font-bold text-slate-950">
-                          {listing.guestCount || 0} guests,{" "}
-                          {listing.bedroomCount || 0} bedrooms,{" "}
-                          {listing.bathroomCount || 0} baths
-                        </dd>
-                      </div>
-                      <div className="rounded-lg bg-slate-50 p-3">
-                        <dt className="font-semibold text-slate-500">From</dt>
-                        <dd className="mt-1 font-bold text-slate-950">
-                          {formatDate(listing.availableFrom)}
-                        </dd>
-                      </div>
-                      <div className="rounded-lg bg-slate-50 p-3">
-                        <dt className="font-semibold text-slate-500">To</dt>
-                        <dd className="mt-1 font-bold text-slate-950">
-                          {formatDate(listing.availableTo)}
-                        </dd>
-                      </div>
-                    </dl>
-
-                    <div className="mt-5 flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 border-t border-slate-100 px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => startEdit(listing)}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:border-slate-300"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/properties/${listing.id}`)}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition hover:border-slate-300"
+                    >
+                      {listing.isListed ? "View listing" : "Preview as guest"}
+                    </button>
+                    {listing.isListed ? (
                       <button
                         type="button"
-                        onClick={() => startEdit(listing)}
-                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+                        onClick={() => handleUnpublish(listing)}
+                        className="rounded-full bg-slate-950 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-slate-800"
                       >
-                        Edit
+                        Unpublish
                       </button>
-                      {listing.isListed ? (
-                        <button
-                          type="button"
-                          onClick={() => handleUnpublish(listing)}
-                          className="rounded-lg bg-slate-950 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-                        >
-                          Unpublish
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handlePublish(listing)}
-                          className="rounded-lg bg-rose-500 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-600"
-                        >
-                          Publish
-                        </button>
-                      )}
+                    ) : (
                       <button
                         type="button"
-                        onClick={() => handleDelete(listing)}
-                        className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 transition hover:border-red-300 hover:bg-red-100"
+                        onClick={() => handlePublish(listing)}
+                        className="rounded-full bg-rose-500 px-3 py-1.5 text-xs font-bold text-white transition hover:bg-rose-600"
                       >
-                        Delete
+                        Publish
                       </button>
-                    </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(listing)}
+                      className="rounded-full border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-700 transition hover:border-red-200"
+                    >
+                      Delete
+                    </button>
                   </div>
                 </article>
               ))}
@@ -494,6 +572,7 @@ function ViewListing() {
           )}
         </section>
       </main>
+
     </div>
   );
 }

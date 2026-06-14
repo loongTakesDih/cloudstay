@@ -6,6 +6,7 @@ import AmenitySelector from "./AmenitySelector";
 import CounterControl from "./CounterControl";
 import PriceSelector from "./PriceSelector";
 import WizardShell from "./WizardShell";
+import WizardVisual from "./WizardVisual";
 
 const propertyCategories = [
   "Apartment",
@@ -110,21 +111,57 @@ const screens = [
 const stepNames = ["Tell us about your place", "Make it stand out", "Finish up"];
 const hasText = (value) => value.trim().length > 0;
 
+const optionIcons = {
+  Apartment: "🏢",
+  House: "🏡",
+  Condominium: "🌆",
+  Villa: "🌴",
+  Studio: "🛋️",
+  Townhouse: "🏘️",
+  Cabin: "🪵",
+  Guesthouse: "🛎️",
+  "Unique Stay": "✨",
+  Other: "📍",
+  "Entire place": "🏠",
+  "A room": "🚪",
+  "Shared room": "🛏️",
+};
+
+const screenVisuals = {
+  placeIntro: { icon: "🏡", label: "Start your hosting journey", accent: "rose" },
+  category: { icon: "🏘️", label: "Choose your home type", accent: "amber" },
+  placeType: { icon: "🚪", label: "Set the guest space", accent: "sky" },
+  address: { icon: "📍", label: "Pin the location", accent: "rose" },
+  basics: { icon: "🛏️", label: "Beds, baths, guests", accent: "slate" },
+  standOutIntro: { icon: "✨", label: "Add the details", accent: "amber", type: "chips" },
+  amenities: { icon: "✨", label: "Guest favorites", accent: "emerald", type: "chips" },
+  photos: { icon: "📸", label: "Photo preview", accent: "sky", type: "photo" },
+  title: { icon: "📝", label: "Name your stay", accent: "rose" },
+  description: { icon: "📖", label: "Tell the story", accent: "amber" },
+  finishIntro: { icon: "📅", label: "Final details", accent: "sky", type: "calendar" },
+  availability: { icon: "📅", label: "Open calendar", accent: "sky", type: "calendar" },
+  price: { icon: "💸", label: "Nightly rate", accent: "emerald", type: "price" },
+  done: { icon: "🎉", label: "Ready to save", accent: "rose" },
+};
+
 function OptionGrid({ options, selectedValue, onSelect }) {
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-3 sm:grid-cols-2">
       {options.map((option) => (
         <button
           key={option}
           type="button"
           onClick={() => onSelect(option)}
-          className={`rounded-lg border px-5 py-5 text-left text-base font-bold transition ${
+          className={`group rounded-2xl border px-5 py-5 text-left text-base font-bold shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl ${
             selectedValue === option
-              ? "border-rose-500 bg-rose-50 text-rose-700 shadow-sm"
-              : "border-slate-200 bg-white text-slate-800 hover:border-slate-300"
+              ? "border-rose-500 bg-gradient-to-br from-rose-50 to-white text-rose-700 shadow-rose-100"
+              : "border-white/80 bg-white/85 text-slate-800 hover:border-rose-100"
           }`}
         >
-          {option}
+          <span className="mb-4 grid h-12 w-12 place-items-center rounded-2xl bg-slate-50 text-2xl transition group-hover:bg-rose-50">
+            {optionIcons[option] || "✨"}
+          </span>
+          <span>{option}</span>
         </button>
       ))}
     </div>
@@ -137,7 +174,7 @@ function ScreenHeading({ helper, kicker, title }) {
       <p className="text-sm font-semibold uppercase tracking-normal text-rose-500">
         {kicker}
       </p>
-      <h1 className="mt-3 text-4xl font-bold tracking-normal text-slate-950 sm:text-5xl">
+      <h1 className="mt-3 max-w-3xl text-4xl font-bold tracking-normal text-slate-950 sm:text-5xl">
         {title}
       </h1>
       {helper && (
@@ -145,6 +182,20 @@ function ScreenHeading({ helper, kicker, title }) {
           {helper}
         </p>
       )}
+    </div>
+  );
+}
+
+function WizardScreen({ children, visual }) {
+  return (
+    <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_360px]">
+      <div>
+        <div className="mb-5 grid h-16 w-16 place-items-center rounded-3xl border border-white/80 bg-white/80 text-3xl shadow-lg shadow-rose-100/70 lg:hidden">
+          <span aria-hidden="true">{visual.icon}</span>
+        </div>
+        {children}
+      </div>
+      <WizardVisual {...visual} />
     </div>
   );
 }
@@ -288,7 +339,8 @@ function ListingWizard({ mode = "become-host" }) {
   };
 
   const renderScreen = () => {
-    switch (currentScreen.id) {
+    const content = (() => {
+      switch (currentScreen.id) {
       case "placeIntro":
         return (
           <>
@@ -297,7 +349,7 @@ function ListingWizard({ mode = "become-host" }) {
               title="Tell us about your place"
               helper="We will start with the basics so guests understand what kind of stay you are offering."
             />
-            <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="rounded-3xl border border-white/80 bg-white/85 p-6 shadow-xl shadow-rose-100/50">
               <p className="text-lg font-semibold text-slate-900">
                 {isCreateMode
                   ? "Create another listing for your host account."
@@ -346,7 +398,7 @@ function ListingWizard({ mode = "become-host" }) {
               type="text"
               value={form.address}
               onChange={(event) => updateForm("address", event.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-5 py-4 text-lg text-slate-950 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+              className="w-full rounded-3xl border border-white/80 bg-white/90 px-6 py-5 text-lg font-semibold text-slate-950 shadow-xl shadow-rose-100/40 outline-none transition-all duration-300 focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
               placeholder="Unit, street, city, state"
               autoFocus
             />
@@ -418,8 +470,16 @@ function ListingWizard({ mode = "become-host" }) {
               title="Add photos later"
               helper="Photo upload is intentionally a placeholder for now. No upload, S3, or base64 storage is used in this flow."
             />
-            <div className="rounded-lg border border-dashed border-slate-300 bg-white p-10 text-center text-sm font-semibold text-slate-500">
-              Photo upload placeholder
+            <div className="grid gap-4 rounded-3xl border border-dashed border-rose-200 bg-white/85 p-6 shadow-xl shadow-rose-100/40 sm:grid-cols-3">
+              {[1, 2, 3].map((item) => (
+                <div
+                  key={item}
+                  className="aspect-[4/3] rounded-2xl border border-white/80 bg-gradient-to-br from-slate-50 to-rose-50 shadow-sm"
+                />
+              ))}
+              <p className="sm:col-span-3 text-center text-sm font-bold text-slate-500">
+                Photo upload placeholder
+              </p>
             </div>
           </>
         );
@@ -434,7 +494,7 @@ function ListingWizard({ mode = "become-host" }) {
               type="text"
               value={form.title}
               onChange={(event) => updateForm("title", event.target.value)}
-              className="w-full rounded-lg border border-slate-300 bg-white px-5 py-4 text-lg text-slate-950 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+              className="w-full rounded-3xl border border-white/80 bg-white/90 px-6 py-5 text-lg font-semibold text-slate-950 shadow-xl shadow-rose-100/40 outline-none transition-all duration-300 focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
               placeholder="Cozy studio near the city center"
               autoFocus
             />
@@ -451,7 +511,7 @@ function ListingWizard({ mode = "become-host" }) {
               rows="7"
               value={form.description}
               onChange={(event) => updateForm("description", event.target.value)}
-              className="w-full resize-none rounded-lg border border-slate-300 bg-white px-5 py-4 text-lg text-slate-950 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+              className="w-full resize-none rounded-3xl border border-white/80 bg-white/90 px-6 py-5 text-lg font-semibold leading-8 text-slate-950 shadow-xl shadow-rose-100/40 outline-none transition-all duration-300 focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
               placeholder="Describe the space, nearby attractions, and anything guests should know."
               autoFocus
             />
@@ -483,7 +543,7 @@ function ListingWizard({ mode = "become-host" }) {
                   onChange={(event) =>
                     updateForm("availableFrom", event.target.value)
                   }
-                  className="w-full rounded-lg border border-slate-300 bg-white px-5 py-4 text-lg text-slate-950 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+                  className="w-full rounded-3xl border border-white/80 bg-white/90 px-6 py-5 text-lg font-semibold text-slate-950 shadow-xl shadow-rose-100/40 outline-none transition-all duration-300 focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
                 />
               </div>
               <div>
@@ -496,7 +556,7 @@ function ListingWizard({ mode = "become-host" }) {
                   onChange={(event) =>
                     updateForm("availableTo", event.target.value)
                   }
-                  className="w-full rounded-lg border border-slate-300 bg-white px-5 py-4 text-lg text-slate-950 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+                  className="w-full rounded-3xl border border-white/80 bg-white/90 px-6 py-5 text-lg font-semibold text-slate-950 shadow-xl shadow-rose-100/40 outline-none transition-all duration-300 focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
                 />
               </div>
             </div>
@@ -523,7 +583,7 @@ function ListingWizard({ mode = "become-host" }) {
               title="You are done. Happy hosting."
               helper="We will save this as an unlisted, available listing so you can review it before guests see it."
             />
-            <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="rounded-3xl border border-white/80 bg-white/85 p-6 shadow-xl shadow-rose-100/50">
               <h2 className="text-xl font-bold tracking-normal text-slate-950">
                 {form.title || "Your new listing"}
               </h2>
@@ -536,7 +596,14 @@ function ListingWizard({ mode = "become-host" }) {
         );
       default:
         return null;
-    }
+      }
+    })();
+
+    return (
+      <WizardScreen visual={screenVisuals[currentScreen.id]}>
+        {content}
+      </WizardScreen>
+    );
   };
 
   return (

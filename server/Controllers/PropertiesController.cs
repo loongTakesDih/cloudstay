@@ -27,7 +27,7 @@ public class PropertiesController : ControllerBase
             .OrderByDescending(property => property.CreatedAt)
             .ToListAsync();
 
-        return Ok(await MapPropertiesAsync(properties));
+        return Ok(await MapPropertiesAsync(properties, GetCurrentUserId()));
     }
 
     [HttpGet("{id:int}")]
@@ -56,7 +56,7 @@ public class PropertiesController : ControllerBase
             }
         }
 
-        return Ok(await MapPropertyAsync(property));
+        return Ok(await MapPropertyAsync(property, GetCurrentUserId()));
     }
 
     [Authorize]
@@ -116,7 +116,7 @@ public class PropertiesController : ControllerBase
             await _context.SaveChangesAsync();
         }
 
-        return Created($"/api/properties/{property.Id}", await MapPropertyAsync(property));
+        return Created($"/api/properties/{property.Id}", await MapPropertyAsync(property, userId.Value));
     }
 
     [Authorize]
@@ -139,7 +139,7 @@ public class PropertiesController : ControllerBase
             .OrderByDescending(property => property.CreatedAt)
             .ToListAsync();
 
-        return Ok(await MapPropertiesAsync(properties));
+        return Ok(await MapPropertiesAsync(properties, userId.Value));
     }
 
     [Authorize]
@@ -186,7 +186,7 @@ public class PropertiesController : ControllerBase
         ApplyPropertyChanges(property, request);
         await _context.SaveChangesAsync();
 
-        return Ok(await MapPropertyAsync(property));
+        return Ok(await MapPropertyAsync(property, userId.Value));
     }
 
     [Authorize]
@@ -287,7 +287,7 @@ public class PropertiesController : ControllerBase
         property.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
-        return Ok(await MapPropertyAsync(property));
+        return Ok(await MapPropertyAsync(property, userId.Value));
     }
 
     private int? GetCurrentUserId()
@@ -399,19 +399,35 @@ public class PropertiesController : ControllerBase
         property.UpdatedAt = DateTime.UtcNow;
     }
 
-    internal async Task<PropertyResponseDto> MapPropertyAsync(Property property)
+    internal async Task<PropertyResponseDto> MapPropertyAsync(
+        Property property,
+        int? currentUserId = null)
     {
         var imageUrl = await _context.PropertyImages
             .Where(image => image.PropertyId == property.Id)
             .Select(image => image.ImageUrl)
             .FirstOrDefaultAsync();
 
-        return MapProperty(property, imageUrl);
+        var host = await _context.Users
+            .Where(user => user.Id == property.HostId)
+            .Select(user => new PropertyHostSummaryDto
+            {
+                HostId = user.Id,
+                Username = user.Username,
+                CreatedAt = user.CreatedAt,
+                IsHost = user.IsHost
+            })
+            .FirstOrDefaultAsync();
+
+        return MapProperty(property, imageUrl, host, currentUserId);
     }
 
-    private async Task<List<PropertyResponseDto>> MapPropertiesAsync(List<Property> properties)
+    private async Task<List<PropertyResponseDto>> MapPropertiesAsync(
+        List<Property> properties,
+        int? currentUserId = null)
     {
         var propertyIds = properties.Select(property => property.Id).ToList();
+        var hostIds = properties.Select(property => property.HostId).Distinct().ToList();
         var images = await _context.PropertyImages
             .Where(image => propertyIds.Contains(image.PropertyId))
             .GroupBy(image => image.PropertyId)
@@ -422,18 +438,32 @@ public class PropertiesController : ControllerBase
             })
             .ToDictionaryAsync(image => image.PropertyId, image => image.ImageUrl);
 
+        var hosts = await _context.Users
+            .Where(user => hostIds.Contains(user.Id))
+            .Select(user => new PropertyHostSummaryDto
+            {
+                HostId = user.Id,
+                Username = user.Username,
+                CreatedAt = user.CreatedAt,
+                IsHost = user.IsHost
+            })
+            .ToDictionaryAsync(host => host.HostId);
+
         return properties
             .Select(property =>
             {
                 images.TryGetValue(property.Id, out var imageUrl);
-                return MapProperty(property, imageUrl);
+                hosts.TryGetValue(property.HostId, out var host);
+                return MapProperty(property, imageUrl, host, currentUserId);
             })
             .ToList();
     }
 
     internal static PropertyResponseDto MapProperty(
         Property property,
-        string? imageUrl = null)
+        string? imageUrl = null,
+        PropertyHostSummaryDto? host = null,
+        int? currentUserId = null)
     {
         return new PropertyResponseDto
         {
@@ -459,7 +489,9 @@ public class PropertiesController : ControllerBase
             IsListed = property.IsListed,
             IsAvailable = property.IsAvailable,
             CreatedAt = property.CreatedAt,
-            UpdatedAt = property.UpdatedAt
+            UpdatedAt = property.UpdatedAt,
+            IsOwner = currentUserId != null && property.HostId == currentUserId.Value,
+            Host = host
         };
     }
 

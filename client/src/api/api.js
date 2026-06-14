@@ -34,6 +34,11 @@ export const getPublicListings = async () => {
   return response.data;
 };
 
+export const getProperty = async (id) => {
+  const response = await api.get(`/properties/${id}`);
+  return response.data;
+};
+
 export const updateListing = async (id, payload) => {
   const response = await api.put(`/properties/${id}`, payload);
   return response.data;
