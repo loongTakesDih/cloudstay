@@ -15,4 +15,36 @@ public class PropertyResponseDto
     public int HostId { get; set; }
 
     public string? ImageUrl { get; set; }
+
+    public string? PropertyCategory { get; set; }
+
+    public string? PlaceType { get; set; }
+
+    public string? Address { get; set; }
+
+    public int? GuestCount { get; set; }
+
+    public int? BedroomCount { get; set; }
+
+    public int? BedCount { get; set; }
+
+    public int? BathroomCount { get; set; }
+
+    public string? UnitFeatures { get; set; }
+
+    public string? PropertyFacilities { get; set; }
+
+    public string? SafetyFeatures { get; set; }
+
+    public DateTime? AvailableFrom { get; set; }
+
+    public DateTime? AvailableTo { get; set; }
+
+    public bool IsListed { get; set; }
+
+    public bool IsAvailable { get; set; }
+
+    public DateTime? CreatedAt { get; set; }
+
+    public DateTime? UpdatedAt { get; set; }
 }

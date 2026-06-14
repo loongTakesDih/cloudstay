@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
-import api from "../api/api";
+import api, {
+  completeHostOnboarding as completeHostOnboardingRequest,
+} from "../api/api";
 import { AuthContext } from "./AuthContextDef";
 
 const TOKEN_KEY = "cloudstay_token";
@@ -31,7 +33,7 @@ const normalizeAuthResponse = (data) => {
   }
 
   return {
-    token: data?.token,
+    token: data?.token ?? source?.token,
     user: {
       userId: source.userId ?? source.UserId ?? source.id ?? source.Id,
       username: source.username ?? source.Username ?? "",
@@ -90,21 +92,14 @@ export function AuthProvider({ children }) {
   };
 
   const becomeHost = async () => {
-    const response = await api.post("/auth/become-host");
-    const { token: nextToken, user: updatedUser } = normalizeAuthResponse(
-      response.data
-    );
+    return "/become-host";
+  };
 
-    if (nextToken) {
-      setAuthToken(nextToken);
-      setToken(nextToken);
-    }
+  const completeHostOnboarding = async (payload) => {
+    const data = await completeHostOnboardingRequest(payload);
+    saveAuth(data.user ?? data);
 
-    if (updatedUser) {
-      setUser(updatedUser);
-    }
-
-    return "/hosting/dashboard";
+    return data;
   };
 
   const logout = () => {
@@ -155,6 +150,7 @@ export function AuthProvider({ children }) {
         login,
         register,
         becomeHost,
+        completeHostOnboarding,
         logout,
         getRedirectPath,
         isAuthenticated: !!user,

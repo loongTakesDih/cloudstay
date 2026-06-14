@@ -100,18 +100,12 @@ function ViewToggle({ activeView, canUseHostView, onViewChange }) {
 
 function AboutMeSection({ user }) {
   const navigate = useNavigate();
-  const { becomeHost } = useAuth();
   const [activeView, setActiveView] = useState("guest");
   const canUseHostView = Boolean(user?.isHost);
 
   const handleViewChange = (nextView) => {
     if (nextView === "host" && !canUseHostView) return;
     setActiveView(nextView);
-  };
-
-  const handleBecomeHost = async () => {
-    const redirectPath = await becomeHost();
-    navigate(redirectPath);
   };
 
   const guestItems = [
@@ -166,7 +160,7 @@ function AboutMeSection({ user }) {
           </p>
           <button
             type="button"
-            onClick={handleBecomeHost}
+            onClick={() => navigate("/become-host")}
             className="mt-3 rounded-lg bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-600 sm:mt-0"
           >
             Become a Host

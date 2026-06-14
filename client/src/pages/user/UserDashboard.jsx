@@ -4,12 +4,7 @@ import { useAuth } from "../../context/useAuth";
 
 function UserDashboard() {
   const navigate = useNavigate();
-  const { becomeHost, logout, user } = useAuth();
-
-  const handleBecomeHost = async () => {
-    const redirectPath = await becomeHost();
-    navigate(redirectPath);
-  };
+  const { logout, user } = useAuth();
 
   return (
     <div className="min-h-screen bg-[#fffaf7] text-slate-950">
@@ -113,7 +108,7 @@ function UserDashboard() {
               </button>
             ) : (
               <button
-                onClick={handleBecomeHost}
+                onClick={() => navigate("/become-host")}
                 className="mt-5 rounded-lg bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-600"
               >
                 Become a Host

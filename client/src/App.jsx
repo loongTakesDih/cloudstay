@@ -5,6 +5,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { useAuth } from "./context/useAuth";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
+import HostOnboarding from "./pages/host/HostOnboarding";
 import HostingDashboard from "./pages/hosting/HostingDashboard";
 import NewListing from "./pages/hosting/NewListing";
 import ViewListing from "./pages/hosting/ViewListing";
@@ -52,6 +53,15 @@ function App() {
             element={
               <ProtectedRoute>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/become-host"
+            element={
+              <ProtectedRoute>
+                <HostOnboarding />
               </ProtectedRoute>
             }
           />

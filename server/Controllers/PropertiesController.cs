@@ -19,14 +19,54 @@ public class PropertiesController : ControllerBase
         _context = context;
     }
 
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<PropertyResponseDto>>> GetPublicProperties()
+    {
+        var properties = await _context.Properties
+            .Where(property => property.IsListed)
+            .OrderByDescending(property => property.CreatedAt)
+            .ToListAsync();
+
+        return Ok(await MapPropertiesAsync(properties));
+    }
+
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<PropertyResponseDto>> GetProperty(int id)
+    {
+        var property = await _context.Properties.FindAsync(id);
+
+        if (property == null)
+        {
+            return NotFound(new
+            {
+                message = "Listing not found."
+            });
+        }
+
+        if (!property.IsListed)
+        {
+            var userId = GetCurrentUserId();
+
+            if (userId == null || property.HostId != userId.Value)
+            {
+                return NotFound(new
+                {
+                    message = "Listing not found."
+                });
+            }
+        }
+
+        return Ok(await MapPropertyAsync(property));
+    }
+
     [Authorize]
     [HttpPost]
     public async Task<ActionResult<PropertyResponseDto>> CreateProperty(
         CreatePropertyRequestDto request)
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userId = GetCurrentUserId();
 
-        if (!int.TryParse(userIdClaim, out var userId))
+        if (userId == null)
         {
             return Unauthorized(new
             {
@@ -34,7 +74,7 @@ public class PropertiesController : ControllerBase
             });
         }
 
-        var host = await _context.Users.FindAsync(userId);
+        var host = await _context.Users.FindAsync(userId.Value);
 
         if (host == null)
         {
@@ -49,25 +89,18 @@ public class PropertiesController : ControllerBase
             return Forbid();
         }
 
-        if (string.IsNullOrWhiteSpace(request.Title) ||
-            string.IsNullOrWhiteSpace(request.Description) ||
-            string.IsNullOrWhiteSpace(request.Location) ||
-            request.PricePerNight <= 0)
+        var validationError = ValidateFullListing(request);
+
+        if (validationError != null)
         {
             return BadRequest(new
             {
-                message = "Title, description, location, and a valid price are required."
+                message = validationError
             });
         }
 
-        var property = new Property
-        {
-            Title = request.Title.Trim(),
-            Description = request.Description.Trim(),
-            PricePerNight = request.PricePerNight,
-            Location = request.Location.Trim(),
-            HostId = userId
-        };
+        var property = BuildProperty(request, userId.Value, isListed: false);
+        property.IsAvailable = true;
 
         _context.Properties.Add(property);
         await _context.SaveChangesAsync();
@@ -76,33 +109,24 @@ public class PropertiesController : ControllerBase
         {
             _context.PropertyImages.Add(new PropertyImage
             {
-                ImageUrl = request.ImageUrl,
+                ImageUrl = request.ImageUrl.Trim(),
                 PropertyId = property.Id
             });
 
             await _context.SaveChangesAsync();
         }
 
-        return Created($"/api/properties/{property.Id}",
-            new PropertyResponseDto
-            {
-                Id = property.Id,
-                Title = property.Title,
-                Description = property.Description,
-                PricePerNight = property.PricePerNight,
-                Location = property.Location,
-                HostId = property.HostId,
-                ImageUrl = request.ImageUrl
-            });
+        return Created($"/api/properties/{property.Id}", await MapPropertyAsync(property));
     }
 
     [Authorize]
+    [HttpGet("my")]
     [HttpGet("mine")]
     public async Task<ActionResult<IEnumerable<PropertyResponseDto>>> GetMyProperties()
     {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var userId = GetCurrentUserId();
 
-        if (!int.TryParse(userIdClaim, out var userId))
+        if (userId == null)
         {
             return Unauthorized(new
             {
@@ -111,22 +135,363 @@ public class PropertiesController : ControllerBase
         }
 
         var properties = await _context.Properties
-            .Where(property => property.HostId == userId)
-            .Select(property => new PropertyResponseDto
-            {
-                Id = property.Id,
-                Title = property.Title,
-                Description = property.Description,
-                PricePerNight = property.PricePerNight,
-                Location = property.Location,
-                HostId = property.HostId,
-                ImageUrl = _context.PropertyImages
-                    .Where(image => image.PropertyId == property.Id)
-                    .Select(image => image.ImageUrl)
-                    .FirstOrDefault()
-            })
+            .Where(property => property.HostId == userId.Value)
+            .OrderByDescending(property => property.CreatedAt)
             .ToListAsync();
 
-        return Ok(properties);
+        return Ok(await MapPropertiesAsync(properties));
+    }
+
+    [Authorize]
+    [HttpPut("{id:int}")]
+    public async Task<ActionResult<PropertyResponseDto>> UpdateProperty(
+        int id,
+        CreatePropertyRequestDto request)
+    {
+        var userId = GetCurrentUserId();
+
+        if (userId == null)
+        {
+            return Unauthorized(new
+            {
+                message = "Invalid user session."
+            });
+        }
+
+        var property = await _context.Properties.FindAsync(id);
+
+        if (property == null)
+        {
+            return NotFound(new
+            {
+                message = "Listing not found."
+            });
+        }
+
+        if (property.HostId != userId.Value)
+        {
+            return Forbid();
+        }
+
+        var validationError = ValidateFullListing(request);
+
+        if (validationError != null)
+        {
+            return BadRequest(new
+            {
+                message = validationError
+            });
+        }
+
+        ApplyPropertyChanges(property, request);
+        await _context.SaveChangesAsync();
+
+        return Ok(await MapPropertyAsync(property));
+    }
+
+    [Authorize]
+    [HttpPatch("{id:int}/publish")]
+    public async Task<ActionResult<PropertyResponseDto>> PublishProperty(int id)
+    {
+        return await SetPublishState(id, isListed: true);
+    }
+
+    [Authorize]
+    [HttpPatch("{id:int}/unpublish")]
+    public async Task<ActionResult<PropertyResponseDto>> UnpublishProperty(int id)
+    {
+        return await SetPublishState(id, isListed: false);
+    }
+
+    [Authorize]
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> DeleteProperty(int id)
+    {
+        var userId = GetCurrentUserId();
+
+        if (userId == null)
+        {
+            return Unauthorized(new
+            {
+                message = "Invalid user session."
+            });
+        }
+
+        var property = await _context.Properties.FindAsync(id);
+
+        if (property == null)
+        {
+            return NotFound(new
+            {
+                message = "Listing not found."
+            });
+        }
+
+        if (property.HostId != userId.Value)
+        {
+            return Forbid();
+        }
+
+        var hasBookings = await _context.Bookings
+            .AnyAsync(booking => booking.PropertyId == id);
+
+        if (hasBookings)
+        {
+            return Conflict(new
+            {
+                message = "This listing has bookings and cannot be deleted."
+            });
+        }
+
+        var images = await _context.PropertyImages
+            .Where(image => image.PropertyId == id)
+            .ToListAsync();
+
+        _context.PropertyImages.RemoveRange(images);
+        _context.Properties.Remove(property);
+        await _context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    private async Task<ActionResult<PropertyResponseDto>> SetPublishState(
+        int id,
+        bool isListed)
+    {
+        var userId = GetCurrentUserId();
+
+        if (userId == null)
+        {
+            return Unauthorized(new
+            {
+                message = "Invalid user session."
+            });
+        }
+
+        var property = await _context.Properties.FindAsync(id);
+
+        if (property == null)
+        {
+            return NotFound(new
+            {
+                message = "Listing not found."
+            });
+        }
+
+        if (property.HostId != userId.Value)
+        {
+            return Forbid();
+        }
+
+        property.IsListed = isListed;
+        property.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        return Ok(await MapPropertyAsync(property));
+    }
+
+    private int? GetCurrentUserId()
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        return int.TryParse(userIdClaim, out var userId) ? userId : null;
+    }
+
+    internal static string? ValidateFullListing(CreatePropertyRequestDto request)
+    {
+        if (string.IsNullOrWhiteSpace(request.PropertyCategory))
+        {
+            return "Property category is required.";
+        }
+
+        if (string.IsNullOrWhiteSpace(request.PlaceType))
+        {
+            return "Place type is required.";
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Address) &&
+            string.IsNullOrWhiteSpace(request.Location))
+        {
+            return "Address or location is required.";
+        }
+
+        if (request.GuestCount < 1)
+        {
+            return "Guest count must be at least 1.";
+        }
+
+        if (request.BedroomCount < 0 ||
+            request.BedCount < 0 ||
+            request.BathroomCount < 0)
+        {
+            return "Bedroom, bed, and bathroom counts cannot be negative.";
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Title))
+        {
+            return "Listing title is required.";
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Description))
+        {
+            return "Listing description is required.";
+        }
+
+        if (request.PricePerNight <= 0)
+        {
+            return "A valid nightly price is required.";
+        }
+
+        if (request.AvailableFrom == null || request.AvailableTo == null)
+        {
+            return "Availability dates are required.";
+        }
+
+        if (request.AvailableTo.Value.Date < request.AvailableFrom.Value.Date)
+        {
+            return "Available To cannot be earlier than Available From.";
+        }
+
+        return null;
+    }
+
+    internal static Property BuildProperty(
+        CreatePropertyRequestDto request,
+        int hostId,
+        bool isListed)
+    {
+        var property = new Property
+        {
+            HostId = hostId,
+            IsListed = isListed,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        ApplyPropertyChanges(property, request);
+
+        return property;
+    }
+
+    internal static void ApplyPropertyChanges(
+        Property property,
+        CreatePropertyRequestDto request)
+    {
+        var address = request.Address.Trim();
+        var location = request.Location.Trim();
+
+        property.Title = request.Title.Trim();
+        property.Description = request.Description.Trim();
+        property.PricePerNight = request.PricePerNight;
+        property.Location = string.IsNullOrWhiteSpace(location) ? address : location;
+        property.PropertyCategory = EmptyToNull(request.PropertyCategory);
+        property.PlaceType = EmptyToNull(request.PlaceType);
+        property.Address = string.IsNullOrWhiteSpace(address) ? property.Location : address;
+        property.GuestCount = request.GuestCount;
+        property.BedroomCount = request.BedroomCount;
+        property.BedCount = request.BedCount;
+        property.BathroomCount = request.BathroomCount;
+        property.UnitFeatures = JoinSelections(request.UnitFeatures);
+        property.PropertyFacilities = JoinSelections(request.PropertyFacilities);
+        property.SafetyFeatures = JoinSelections(request.SafetyFeatures);
+        property.AvailableFrom = ToUtcDate(request.AvailableFrom);
+        property.AvailableTo = ToUtcDate(request.AvailableTo);
+        property.IsAvailable = request.IsAvailable;
+        property.UpdatedAt = DateTime.UtcNow;
+    }
+
+    internal async Task<PropertyResponseDto> MapPropertyAsync(Property property)
+    {
+        var imageUrl = await _context.PropertyImages
+            .Where(image => image.PropertyId == property.Id)
+            .Select(image => image.ImageUrl)
+            .FirstOrDefaultAsync();
+
+        return MapProperty(property, imageUrl);
+    }
+
+    private async Task<List<PropertyResponseDto>> MapPropertiesAsync(List<Property> properties)
+    {
+        var propertyIds = properties.Select(property => property.Id).ToList();
+        var images = await _context.PropertyImages
+            .Where(image => propertyIds.Contains(image.PropertyId))
+            .GroupBy(image => image.PropertyId)
+            .Select(group => new
+            {
+                PropertyId = group.Key,
+                ImageUrl = group.Select(image => image.ImageUrl).FirstOrDefault()
+            })
+            .ToDictionaryAsync(image => image.PropertyId, image => image.ImageUrl);
+
+        return properties
+            .Select(property =>
+            {
+                images.TryGetValue(property.Id, out var imageUrl);
+                return MapProperty(property, imageUrl);
+            })
+            .ToList();
+    }
+
+    internal static PropertyResponseDto MapProperty(
+        Property property,
+        string? imageUrl = null)
+    {
+        return new PropertyResponseDto
+        {
+            Id = property.Id,
+            Title = property.Title,
+            Description = property.Description,
+            PricePerNight = property.PricePerNight,
+            Location = property.Location,
+            HostId = property.HostId,
+            ImageUrl = imageUrl,
+            PropertyCategory = property.PropertyCategory,
+            PlaceType = property.PlaceType,
+            Address = property.Address,
+            GuestCount = property.GuestCount,
+            BedroomCount = property.BedroomCount,
+            BedCount = property.BedCount,
+            BathroomCount = property.BathroomCount,
+            UnitFeatures = property.UnitFeatures,
+            PropertyFacilities = property.PropertyFacilities,
+            SafetyFeatures = property.SafetyFeatures,
+            AvailableFrom = property.AvailableFrom,
+            AvailableTo = property.AvailableTo,
+            IsListed = property.IsListed,
+            IsAvailable = property.IsAvailable,
+            CreatedAt = property.CreatedAt,
+            UpdatedAt = property.UpdatedAt
+        };
+    }
+
+    private static string? JoinSelections(List<string>? values)
+    {
+        if (values == null)
+        {
+            return null;
+        }
+
+        var cleanValues = values
+            .Select(value => value.Trim())
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+        var result = string.Join(", ", cleanValues);
+
+        return string.IsNullOrWhiteSpace(result) ? null : result;
+    }
+
+    private static string? EmptyToNull(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static DateTime? ToUtcDate(DateTime? value)
+    {
+        if (value == null)
+        {
+            return null;
+        }
+
+        return DateTime.SpecifyKind(value.Value.Date, DateTimeKind.Utc);
     }
 }
