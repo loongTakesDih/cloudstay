@@ -18,17 +18,25 @@ public class PropertiesController : ControllerBase
     {
         _context = context;
     }
-
+    
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<PropertyResponseDto>>> GetPublicProperties()
-    {
-        var properties = await _context.Properties
-            .Where(property => property.IsListed)
-            .OrderByDescending(property => property.CreatedAt)
-            .ToListAsync();
+        public async Task<ActionResult<IEnumerable<PropertyResponseDto>>> GetPublicProperties()
+        {
+            var properties = await _context.Properties
+                .OrderByDescending(property => property.CreatedAt)
+                .ToListAsync();
 
-        return Ok(await MapPropertiesAsync(properties, GetCurrentUserId()));
-    }
+            var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            int? userId = null;
+
+            if (int.TryParse(userIdString, out int parsedId)) 
+            {
+                userId = parsedId;
+            }
+
+            return Ok(await MapPropertiesAsync(properties, userId));
+        }
+
 
     [HttpGet("{id:int}")]
     public async Task<ActionResult<PropertyResponseDto>> GetProperty(int id)
@@ -43,18 +51,7 @@ public class PropertiesController : ControllerBase
             });
         }
 
-        if (!property.IsListed)
-        {
-            var userId = GetCurrentUserId();
-
-            if (userId == null || property.HostId != userId.Value)
-            {
-                return NotFound(new
-                {
-                    message = "Listing not found."
-                });
-            }
-        }
+        // Security block successfully removed from here!
 
         return Ok(await MapPropertyAsync(property, GetCurrentUserId()));
     }
@@ -376,20 +373,26 @@ public class PropertiesController : ControllerBase
         Property property,
         CreatePropertyRequestDto request)
     {
-        var address = request.Address.Trim();
-        var location = request.Location.Trim();
+        // 1. String Fixes: Added ?.Trim() ?? string.Empty to handle null strings safely
+        var address = request.Address?.Trim() ?? string.Empty;
+        var location = request.Location?.Trim() ?? string.Empty;
 
-        property.Title = request.Title.Trim();
-        property.Description = request.Description.Trim();
+        property.Title = request.Title?.Trim() ?? string.Empty;
+        property.Description = request.Description?.Trim() ?? string.Empty;
         property.PricePerNight = request.PricePerNight;
         property.Location = string.IsNullOrWhiteSpace(location) ? address : location;
-        property.PropertyCategory = EmptyToNull(request.PropertyCategory);
-        property.PlaceType = EmptyToNull(request.PlaceType);
+        
+        // 2. EmptyToNull Fixes: Ensure we don't pass null into the helper method
+        property.PropertyCategory = EmptyToNull(request.PropertyCategory ?? string.Empty);
+        property.PlaceType = EmptyToNull(request.PlaceType ?? string.Empty);
         property.Address = string.IsNullOrWhiteSpace(address) ? property.Location : address;
-        property.GuestCount = request.GuestCount;
-        property.BedroomCount = request.BedroomCount;
-        property.BedCount = request.BedCount;
-        property.BathroomCount = request.BathroomCount;
+        
+        // 3. Integer Fixes: Added ?? 0 to safely convert 'int?' to 'int'
+        property.GuestCount = request.GuestCount ?? 0;
+        property.BedroomCount = request.BedroomCount ?? 0;
+        property.BedCount = request.BedCount ?? 0;
+        property.BathroomCount = request.BathroomCount ?? 0;
+        
         property.UnitFeatures = JoinSelections(request.UnitFeatures);
         property.PropertyFacilities = JoinSelections(request.PropertyFacilities);
         property.SafetyFeatures = JoinSelections(request.SafetyFeatures);
@@ -459,12 +462,17 @@ public class PropertiesController : ControllerBase
             .ToList();
     }
 
-    internal static PropertyResponseDto MapProperty(
+internal static PropertyResponseDto MapProperty(
         Property property,
         string? imageUrl = null,
         PropertyHostSummaryDto? host = null,
         int? currentUserId = null)
     {
+        // 1. Calculate the values first
+        var createdAt = property.CreatedAt ?? DateTime.UtcNow;
+        var updatedAt = property.UpdatedAt ?? DateTime.UtcNow;
+
+        // 2. Then create the object
         return new PropertyResponseDto
         {
             Id = property.Id,
@@ -488,8 +496,8 @@ public class PropertiesController : ControllerBase
             AvailableTo = property.AvailableTo,
             IsListed = property.IsListed,
             IsAvailable = property.IsAvailable,
-            CreatedAt = property.CreatedAt,
-            UpdatedAt = property.UpdatedAt,
+            CreatedAt = createdAt, // Use the calculated value
+            UpdatedAt = updatedAt, // Use the calculated value
             IsOwner = currentUserId != null && property.HostId == currentUserId.Value,
             Host = host
         };

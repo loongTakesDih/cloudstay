@@ -1,8 +1,8 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL,
-  baseURL: "http://localhost:5028",
+
+  baseURL: "http://localhost:5028/api", 
 });
 
 api.interceptors.request.use((config) => {
@@ -15,6 +15,27 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// ==========================================
+// AUTHENTICATION
+// ==========================================
+export const login = async (credentials) => {
+  const response = await api.post("/auth/login", credentials);
+  return response.data;
+};
+
+export const register = async (userData) => {
+  const response = await api.post("/auth/register", userData);
+  return response.data;
+};
+
+export const getMe = async () => {
+  const response = await api.get("/auth/me");
+  return response.data;
+};
+
+// ==========================================
+// HOSTING & PROPERTIES
+// ==========================================
 export const completeHostOnboarding = async (payload) => {
   const response = await api.post("/host/onboarding", payload);
   return response.data;
@@ -57,6 +78,24 @@ export const unpublishListing = async (id) => {
 
 export const deleteListing = async (id) => {
   await api.delete(`/properties/${id}`);
+};
+
+// ==========================================
+// BOOKINGS & TRIPS
+// ==========================================
+export const createBooking = async (payload) => {
+  const response = await api.post("/bookings", payload);
+  return response.data;
+};
+
+export const getMyTrips = async () => {
+  const response = await api.get("/bookings/my-trips");
+  return response.data;
+};
+
+export const getBookingDetails = async (id) => {
+  const response = await api.get(`/bookings/${id}`);
+  return response.data;
 };
 
 export default api;

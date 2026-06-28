@@ -5,15 +5,15 @@ import { AuthProvider } from "./context/AuthContext";
 import { useAuth } from "./context/useAuth";
 import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
-import HostOnboarding from "./pages/host/HostOnboarding";
 import Explore from "./pages/properties/Explore";
 import HostingDashboard from "./pages/hosting/HostingDashboard";
 import NewListing from "./pages/hosting/NewListing";
 import ViewListing from "./pages/hosting/ViewListing";
-import PropertyDetails from "./pages/properties/PropertyDetails";
 import ProfilePage from "./pages/user/ProfilePage";
+import PropertyDetails from "./pages/properties/PropertyDetails";
 import UserDashboard from "./pages/user/UserDashboard";
 import BookingDetails from "./pages/trips/BookingDetails";
+import HostOnboarding from "./pages/host/HostOnboarding";
 
 function HomeRedirect() {
   const { getRedirectPath, loading, user } = useAuth();
@@ -109,5 +109,4 @@ function App() {
   );
 }
 
-export default App;
 export default App;

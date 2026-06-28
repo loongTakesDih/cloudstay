@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getMyTrips } from "../../api/api"; // Reuse this to find the specific booking
+import { getMyTrips } from "../../api/api.js"; // Reuse this to find the specific booking
 
 function BookingDetails() {
   const { bookingId } = useParams();

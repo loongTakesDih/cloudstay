@@ -6,7 +6,7 @@ import {
   publishListing,
   unpublishListing,
   updateListing,
-} from "../../api/api";
+} from "../../api/api.js";
 import AppHeader from "../../components/AppHeader";
 import { useAuth } from "../../context/useAuth";
 

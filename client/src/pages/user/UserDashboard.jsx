@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppHeader from "../../components/AppHeader";
 import { useAuth } from "../../context/useAuth";
@@ -93,12 +94,8 @@ function UserDashboard() {
               Explore stays
             </h3>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              Discover apartments, homes, and weekend escapes once listings are
-              connected.
               Discover apartments, homes, and weekend escapes.
             </p>
-            <button className="mt-5 rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white">
-              Browse soon
             <button 
               onClick={() => navigate("/explore")}
               className="mt-5 rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
@@ -107,18 +104,11 @@ function UserDashboard() {
             </button>
           </article>
 
-          <article className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
           <article className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm flex flex-col max-h-[300px]">
             <p className="text-sm font-semibold text-rose-500">Trips</p>
             <h3 className="mt-3 text-xl font-bold tracking-normal text-slate-950">
               My trips
             </h3>
-            <p className="mt-3 text-sm leading-6 text-slate-600">
-              Upcoming and past bookings will appear here as the booking flow
-              grows.
-            </p>
-            <div className="mt-5 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-              No trips yet
             
             <div className="mt-4 flex-1 overflow-y-auto pr-2">
               {loadingTrips ? (
@@ -158,10 +148,6 @@ function UserDashboard() {
             <h3 className="mt-3 text-xl font-bold tracking-normal text-slate-950">
               Saved places
             </h3>
-            <p className="mt-3 text-sm leading-6 text-slate-600">
-              Keep favorite stays ready for later once search and listing pages
-              are available.
-            </p>
             <div className="mt-5 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">
               No saved places
             </div>
@@ -172,11 +158,6 @@ function UserDashboard() {
             <h3 className="mt-3 text-xl font-bold tracking-normal text-slate-950">
               {user?.isHost ? "Hosting is ready" : "Share your place"}
             </h3>
-            <p className="mt-3 text-sm leading-6 text-slate-600">
-              {user?.isHost
-                ? "Switch to hosting to manage listings, requests, and earnings."
-                : "Become a host when you are ready to list a stay on CloudStay."}
-            </p>
             {user?.isHost ? (
               <button
                 onClick={() => navigate("/hosting/dashboard")}
@@ -194,32 +175,9 @@ function UserDashboard() {
             )}
           </article>
         </section>
-
-        <section className="mt-8 rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 className="text-lg font-bold tracking-normal text-slate-950">
-            Account details
-          </h3>
-          <dl className="mt-4 grid gap-4 text-sm sm:grid-cols-3">
-            <div>
-              <dt className="font-semibold text-slate-500">Email</dt>
-              <dd className="mt-1 text-slate-800">{user?.email}</dd>
-            </div>
-            <div>
-              <dt className="font-semibold text-slate-500">Role</dt>
-              <dd className="mt-1 text-slate-800">{user?.role}</dd>
-            </div>
-            <div>
-              <dt className="font-semibold text-slate-500">Hosting</dt>
-              <dd className="mt-1 text-slate-800">
-                {user?.isHost ? "Enabled" : "Not enabled"}
-              </dd>
-            </div>
-          </dl>
-        </section>
       </main>
     </div>
   );
 }
 
-export default UserDashboard;
 export default UserDashboard;

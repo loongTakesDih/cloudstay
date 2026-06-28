@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createListing } from "../../api/api";
+import { createListing } from "../../api/api.js";
 import { useAuth } from "../../context/useAuth";
 import AmenitySelector from "./AmenitySelector";
 import CounterControl from "./CounterControl";

@@ -12,29 +12,29 @@ public class CreatePropertyRequestDto
 
     public string? ImageUrl { get; set; }
 
-    public string PropertyCategory { get; set; } = string.Empty;
+    public string? PropertyCategory { get; set; }
 
-    public string PlaceType { get; set; } = string.Empty;
+    public string? PlaceType { get; set; }
 
-    public string Address { get; set; } = string.Empty;
+    public string? Address { get; set; }
 
-    public int GuestCount { get; set; } = 1;
+    public int? GuestCount { get; set; }
 
-    public int BedroomCount { get; set; }
+    public int? BedroomCount { get; set; }
 
-    public int BedCount { get; set; }
+    public int? BedCount { get; set; }
 
-    public int BathroomCount { get; set; }
+    public int? BathroomCount { get; set; }
 
-    public List<string> UnitFeatures { get; set; } = [];
+    public List<string>? UnitFeatures { get; set; }
 
-    public List<string> PropertyFacilities { get; set; } = [];
+    public List<string>? PropertyFacilities { get; set; }
 
-    public List<string> SafetyFeatures { get; set; } = [];
+    public List<string>? SafetyFeatures { get; set; }
 
     public DateTime? AvailableFrom { get; set; }
 
     public DateTime? AvailableTo { get; set; }
 
-    public bool IsAvailable { get; set; } = true;
+    public bool IsAvailable { get; set; }
 }

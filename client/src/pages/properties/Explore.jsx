@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppHeader from "../../components/AppHeader";
 import { useAuth } from "../../context/useAuth";
-import { getPublicListings } from "../../api/api";
+import { getPublicListings } from "../../api/api.js";
 
 function ExploreStays() {
   const navigate = useNavigate();
