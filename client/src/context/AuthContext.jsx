@@ -74,6 +74,8 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const response = await api.post("/auth/login", {
+    // FIXED: Added /api prefix
+    const response = await api.post("/api/auth/login", {
       email,
       password,
     });
@@ -83,6 +85,7 @@ export function AuthProvider({ children }) {
 
   const register = async (username, email, password) => {
     const response = await api.post("/auth/register", {
+    const response = await api.post("/api/auth/register", {
       username,
       email,
       password,
@@ -122,6 +125,8 @@ export function AuthProvider({ children }) {
         setToken(storedToken);
 
         const response = await api.get("/auth/me");
+        // FIXED: Added /api prefix
+        const response = await api.get("/api/auth/me");
         const { user: latestUser } = normalizeAuthResponse(response.data);
 
         setUser(latestUser);
@@ -159,4 +164,5 @@ export function AuthProvider({ children }) {
       {children}
     </AuthContext.Provider>
   );
+}
 }
