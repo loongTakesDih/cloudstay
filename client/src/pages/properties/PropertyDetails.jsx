@@ -8,6 +8,7 @@ import {
 } from "../../api/api";
 import AppHeader from "../../components/AppHeader";
 import { useAuth } from "../../context/useAuth";
+import { readSavedListings, writeSavedListings } from "../../utils/localState.js";
 
 const splitValues = (value) => {
   if (!value) return [];
@@ -452,6 +453,7 @@ function PropertyDetails() {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     let isActive = true;
@@ -476,8 +478,46 @@ function PropertyDetails() {
     return () => { isActive = false; };
   }, [id]);
 
+  useEffect(() => {
+    if (!listing || !user) {
+      setIsSaved(false);
+      return;
+    }
+
+    const savedListings = readSavedListings(user.userId);
+    setIsSaved(savedListings.some((saved) => saved.id === listing.id));
+  }, [listing, user]);
+
   const handlePublish = async () => setListing(await publishListing(id));
   const handleUnpublish = async () => setListing(await unpublishListing(id));
+
+  const handleToggleSave = () => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    if (!listing || listing.isOwner) {
+      return;
+    }
+
+    const savedListings = readSavedListings(user.userId);
+    const nextSavedListings = isSaved
+      ? savedListings.filter((saved) => saved.id !== listing.id)
+      : [
+          {
+            id: listing.id,
+            title: listing.title,
+            location: listing.location,
+            imageUrl: listing.imageUrl,
+            pricePerNight: listing.pricePerNight,
+          },
+          ...savedListings.filter((saved) => saved.id !== listing.id),
+        ];
+
+    writeSavedListings(user.userId, nextSavedListings);
+    setIsSaved(!isSaved);
+  };
 
   if (loading) return <main className="flex min-h-screen items-center justify-center bg-[#fffaf7] px-4 text-slate-700">Loading listing...</main>;
   if (error || !listing) return <NotFoundState onBack={() => navigate(-1)} />;
@@ -489,13 +529,22 @@ function PropertyDetails() {
         subtitle={listing.isOwner ? "Host preview" : "Listing details"}
         actions={
           <>
+            {!listing.isOwner && (
+              <button
+                type="button"
+                onClick={() => navigate("/explore")}
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-slate-300"
+              >
+                Back to Explore
+              </button>
+            )}
             {user && (
               <button
                 type="button"
                 onClick={() => navigate(user.isHost ? "/hosting/listings" : "/dashboard")}
                 className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-slate-300"
               >
-                {user.isHost ? "My listings" : "Dashboard"}
+                {user.isHost ? "My listings" : "Back to Dashboard"}
               </button>
             )}
             {user ? (
@@ -521,21 +570,6 @@ function PropertyDetails() {
 
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid gap-5">
-          {/* NEW: RETURN TO LISTINGS BUTTON (GUESTS ONLY) */}
-          {!listing.isOwner && (
-            <div>
-              <button 
-                onClick={() => navigate("/")} 
-                className="flex items-center gap-2 text-sm font-bold text-slate-500 transition hover:text-slate-900"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="h-4 w-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-                </svg>
-                Return to listings
-              </button>
-            </div>
-          )}
-
           <HostControlBanner
             listing={listing}
             onEdit={() => navigate(`/hosting/listings?edit=${listing.id}`)}
@@ -555,8 +589,19 @@ function PropertyDetails() {
                     {listing.isListed ? "Listed" : "Unlisted"}
                   </span>
                 )}
-                <button className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-700">Share</button>
-                <button className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-700">Save</button>
+                {!listing.isOwner && (
+                  <button
+                    type="button"
+                    onClick={handleToggleSave}
+                    className={`rounded-full border px-3 py-1 text-xs font-bold transition ${
+                      isSaved
+                        ? "border-rose-200 bg-rose-50 text-rose-700"
+                        : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                    }`}
+                  >
+                    {isSaved ? "Saved" : "Save"}
+                  </button>
+                )}
               </div>
             </div>
           </section>

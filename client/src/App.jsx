@@ -7,7 +7,9 @@ import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import Explore from "./pages/properties/Explore";
 import HostingDashboard from "./pages/hosting/HostingDashboard";
+import BookingHistoryPage from "./pages/hosting/BookingHistoryPage";
 import NewListing from "./pages/hosting/NewListing";
+import PerformancePage from "./pages/hosting/PerformancePage";
 import ViewListing from "./pages/hosting/ViewListing";
 import ProfilePage from "./pages/user/ProfilePage";
 import PropertyDetails from "./pages/properties/PropertyDetails";
@@ -77,6 +79,15 @@ function App() {
           />
 
           <Route
+            path="/trips/:bookingId"
+            element={
+              <ProtectedRoute>
+                <BookingDetails />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/hosting/dashboard"
             element={
               <HostCapabilityRoute>
@@ -85,8 +96,32 @@ function App() {
             }
           />
 
-  
-<Route path="/hosting/requests/:id" element={<BookingRequestDetails />} />
+          <Route
+            path="/hosting/history"
+            element={
+              <HostCapabilityRoute>
+                <BookingHistoryPage />
+              </HostCapabilityRoute>
+            }
+          />
+
+          <Route
+            path="/hosting/performance"
+            element={
+              <HostCapabilityRoute>
+                <PerformancePage />
+              </HostCapabilityRoute>
+            }
+          />
+
+          <Route
+            path="/hosting/requests/:id"
+            element={
+              <HostCapabilityRoute>
+                <BookingRequestDetails />
+              </HostCapabilityRoute>
+            }
+          />
 
           <Route
             path="/hosting/listings"

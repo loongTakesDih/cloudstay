@@ -86,22 +86,89 @@ public class BookingsController : ControllerBase
     }
 [Authorize]
 [HttpGet("{id}")]
-public async Task<ActionResult<Booking>> GetBooking(int id) 
+public async Task<ActionResult> GetBooking(int id) 
 {
-    var booking = await _context.Bookings
-        .Include(b => b.Property)
-        .Include(b => b.Guest)
+    var bookingAccess = await _context.Bookings
+        .Select(b => new
+        {
+            b.Id,
+            b.GuestId,
+            PropertyHostId = b.Property != null ? b.Property.HostId : (int?)null
+        })
         .FirstOrDefaultAsync(b => b.Id == id);
-    return booking != null ? Ok(booking) : NotFound();
+
+    if (bookingAccess == null)
+    {
+        return NotFound();
+    }
+
+    var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if (!int.TryParse(userIdString, out int userId))
+    {
+        return Unauthorized();
+    }
+
+    var canAccess = bookingAccess.GuestId == userId || bookingAccess.PropertyHostId == userId;
+    if (!canAccess)
+    {
+        return Forbid();
+    }
+
+    var booking = await _context.Bookings
+        .Where(b => b.Id == id)
+        .Select(b => new
+        {
+            b.Id,
+            b.GuestId,
+            b.PropertyId,
+            b.CheckIn,
+            b.CheckOut,
+            b.Status,
+            b.TotalPrice,
+            b.CreatedAt,
+            Property = b.Property == null
+                ? null
+                : new
+                {
+                    b.Property.Id,
+                    b.Property.Title,
+                    b.Property.Location
+                },
+            Guest = b.Guest == null
+                ? null
+                : new
+                {
+                    b.Guest.Id,
+                    b.Guest.Username,
+                    b.Guest.Email
+                }
+        })
+        .FirstOrDefaultAsync();
+
+    return Ok(booking);
 }
 
 [Authorize]
 [HttpPut("{id}/status")]
 public async Task<ActionResult> UpdateStatus(int id, [FromBody] StatusDto statusDto)
 {
-    var booking = await _context.Bookings.FindAsync(id);
+    var booking = await _context.Bookings
+        .Include(b => b.Property)
+        .FirstOrDefaultAsync(b => b.Id == id);
+
     if (booking == null) return NotFound();
-    
+
+    var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if (!int.TryParse(userIdString, out int userId))
+    {
+        return Unauthorized();
+    }
+
+    if (booking.Property?.HostId != userId)
+    {
+        return Forbid();
+    }
+
     booking.Status = statusDto.Status;
     await _context.SaveChangesAsync();
     return Ok();
@@ -109,7 +176,7 @@ public async Task<ActionResult> UpdateStatus(int id, [FromBody] StatusDto status
 
     [Authorize]
 [HttpGet("host/requests")]
-public async Task<ActionResult<IEnumerable<Booking>>> GetHostBookingRequests()
+public async Task<ActionResult> GetHostBookingRequests()
 {
     var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     if (!int.TryParse(userIdString, out int hostId))
@@ -117,12 +184,41 @@ public async Task<ActionResult<IEnumerable<Booking>>> GetHostBookingRequests()
         return Unauthorized();
     }
 
-    // This query finds all bookings for properties owned by this host
+    var hostPropertyIds = await _context.Properties
+        .Where(property => property.HostId == hostId)
+        .Select(property => property.Id)
+        .ToListAsync();
+
     var requests = await _context.Bookings
-        .Include(b => b.Property)
-        .Include(b => b.Guest)
-        .Where(b => b.Property.HostId == hostId && b.Status == "Pending")
+        .Where(b => hostPropertyIds.Contains(b.PropertyId))
         .OrderByDescending(b => b.CreatedAt)
+        .Select(b => new
+        {
+            b.Id,
+            b.GuestId,
+            b.PropertyId,
+            b.CheckIn,
+            b.CheckOut,
+            b.Status,
+            b.TotalPrice,
+            b.CreatedAt,
+            Property = b.Property == null
+                ? null
+                : new
+                {
+                    b.Property.Id,
+                    b.Property.Title,
+                    b.Property.Location
+                },
+            Guest = b.Guest == null
+                ? null
+                : new
+                {
+                    b.Guest.Id,
+                    b.Guest.Username,
+                    b.Guest.Email
+                }
+        })
         .ToListAsync();
 
     return Ok(requests);
@@ -130,7 +226,7 @@ public async Task<ActionResult<IEnumerable<Booking>>> GetHostBookingRequests()
 
 [Authorize]
 [HttpGet("my-trips")]
-public async Task<ActionResult<IEnumerable<Booking>>> GetMyBookings()
+public async Task<ActionResult> GetMyBookings()
 {
     var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     if (!int.TryParse(userIdString, out int guestId))
@@ -139,9 +235,27 @@ public async Task<ActionResult<IEnumerable<Booking>>> GetMyBookings()
     }
 
     var bookings = await _context.Bookings
-        .Include(b => b.Property)
         .Where(b => b.GuestId == guestId)
         .OrderByDescending(b => b.CreatedAt)
+        .Select(b => new
+        {
+            b.Id,
+            b.GuestId,
+            b.PropertyId,
+            b.CheckIn,
+            b.CheckOut,
+            b.Status,
+            b.TotalPrice,
+            b.CreatedAt,
+            Property = b.Property == null
+                ? null
+                : new
+                {
+                    b.Property.Id,
+                    b.Property.Title,
+                    b.Property.Location
+                }
+        })
         .ToListAsync();
 
     return Ok(bookings);

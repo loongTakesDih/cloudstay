@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppHeader from "../../components/AppHeader";
+import NotificationBell from "../../components/NotificationBell.jsx";
+import { getMyTrips } from "../../api/api.js";
 import { useAuth } from "../../context/useAuth";
+import { readSavedListings } from "../../utils/localState.js";
 
 
 function UserDashboard() {
@@ -9,6 +12,7 @@ function UserDashboard() {
   const { logout, user } = useAuth();
   const [trips, setTrips] = useState([]);
   const [loadingTrips, setLoadingTrips] = useState(false);
+  const [savedPlaces, setSavedPlaces] = useState([]);
 
   const handleBecomeHost = async () => {
     try {
@@ -30,14 +34,14 @@ function UserDashboard() {
   };
 
   useEffect(() => {
-    // Fetch trips for the user
     const fetchTrips = async () => {
       setLoadingTrips(true);
       try {
-        // This would be implemented when the booking/trips API is ready
-        setTrips([]);
+        const data = await getMyTrips();
+        setTrips(data);
       } catch (error) {
         console.error("Failed to fetch trips", error);
+        setTrips([]);
       } finally {
         setLoadingTrips(false);
       }
@@ -45,6 +49,20 @@ function UserDashboard() {
 
     if (user) {
       fetchTrips();
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      setSavedPlaces([]);
+      return;
+    }
+
+    try {
+      setSavedPlaces(readSavedListings(user.userId));
+    } catch (error) {
+      console.error("Failed to load saved places", error);
+      setSavedPlaces([]);
     }
   }, [user]);
 
@@ -64,6 +82,7 @@ function UserDashboard() {
             <span className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600">
               {user?.isHost ? "Host enabled" : "Guest account"}
             </span>
+            <NotificationBell userId={user?.userId} />
             <button
               onClick={logout}
               className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
@@ -149,8 +168,39 @@ function UserDashboard() {
             <h3 className="mt-3 text-xl font-bold tracking-normal text-slate-950">
               Saved places
             </h3>
-            <div className="mt-5 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-              No saved places
+            <div className="mt-5 max-h-[220px] space-y-3 overflow-y-auto pr-1">
+              {savedPlaces.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+                  No saved places
+                </div>
+              ) : (
+                savedPlaces.map((place) => (
+                  <button
+                    key={place.id}
+                    type="button"
+                    onClick={() => navigate(`/properties/${place.id}`)}
+                    className="flex w-full items-center gap-3 rounded-lg border border-slate-100 bg-slate-50 p-3 text-left transition hover:border-rose-200 hover:bg-rose-50"
+                  >
+                    <div className="h-14 w-16 overflow-hidden rounded-md bg-slate-200">
+                      {place.imageUrl ? (
+                        <img src={place.imageUrl} alt={place.title} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-[10px] font-bold text-slate-500">
+                          No Photo
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-bold text-slate-900">
+                        {place.title}
+                      </p>
+                      <p className="mt-1 truncate text-xs text-slate-500">
+                        {place.location}
+                      </p>
+                    </div>
+                  </button>
+                ))
+              )}
             </div>
           </article>
 
@@ -176,6 +226,7 @@ function UserDashboard() {
             )}
           </article>
         </section>
+
       </main>
     </div>
   );
