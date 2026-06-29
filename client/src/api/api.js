@@ -80,14 +80,17 @@ export const deleteListing = async (id) => {
   await api.delete(`/properties/${id}`);
 };
 
+export const getBookingRequests = async () => {
+  const response = await api.get("/bookings/host/requests");
+  return response.data;
+};
 // ==========================================
 // BOOKINGS & TRIPS
 // ==========================================
-export const createBooking = async (payload) => {
-  const response = await api.post("/bookings", payload);
+export const createBookingRequest = async (bookingData) => {
+  const response = await api.post("/bookings", bookingData);
   return response.data;
 };
-
 export const getMyTrips = async () => {
   const response = await api.get("/bookings/my-trips");
   return response.data;
@@ -95,6 +98,21 @@ export const getMyTrips = async () => {
 
 export const getBookingDetails = async (id) => {
   const response = await api.get(`/bookings/${id}`);
+  return response.data;
+};
+
+export const getBookingById = async (id) => {
+  const response = await api.get(`/bookings/${id}`);
+  return response.data;
+};
+
+export const updateBookingStatus = async (id, status) => {
+  const response = await api.put(`/bookings/${id}/status`, { status });
+  return response.data;
+};
+
+export const getMyBookings = async () => {
+  const response = await api.get("/bookings/my-trips");
   return response.data;
 };
 

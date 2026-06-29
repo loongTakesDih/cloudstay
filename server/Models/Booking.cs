@@ -10,14 +10,18 @@ public class Booking
     public int Id { get; set; }
 
     [Required]
-    public int PropertyId { get; set; }
-    
-    // Links this booking to the actual Property in the database
-    [ForeignKey("PropertyId")]
-    public Property? Property { get; set; }
+    public int GuestId { get; set; }
+
+    // Navigation property for Entity Framework
+    [ForeignKey("GuestId")]
+    public User? Guest { get; set; }
 
     [Required]
-    public int GuestId { get; set; }
+    public int PropertyId { get; set; }
+
+    // Navigation property for Entity Framework
+    [ForeignKey("PropertyId")]
+    public Property? Property { get; set; }
 
     [Required]
     public DateTime CheckIn { get; set; }
@@ -26,10 +30,12 @@ public class Booking
     public DateTime CheckOut { get; set; }
 
     [Required]
-    [Column(TypeName = "decimal(18,2)")] // Good practice for money values in databases
+    public string Status { get; set; } = "Pending";
+
+    [Required]
+    [Column(TypeName = "decimal(18,2)")]
     public decimal TotalPrice { get; set; }
 
-    public string Status { get; set; } = "Confirmed";
-
+    [Required]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

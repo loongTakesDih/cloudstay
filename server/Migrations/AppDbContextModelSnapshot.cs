@@ -56,7 +56,7 @@ namespace server.Migrations
 
                     b.HasIndex("PropertyId");
 
-                    b.ToTable("Bookings");
+                    b.ToTable("Bookings", (string)null);
                 });
 
             modelBuilder.Entity("server.Models.Property", b =>
@@ -137,7 +137,7 @@ namespace server.Migrations
 
                     b.HasIndex("HostId");
 
-                    b.ToTable("Properties");
+                    b.ToTable("Properties", (string)null);
                 });
 
             modelBuilder.Entity("server.Models.PropertyImage", b =>
@@ -159,7 +159,7 @@ namespace server.Migrations
 
                     b.HasIndex("PropertyId");
 
-                    b.ToTable("PropertyImages");
+                    b.ToTable("PropertyImages", (string)null);
                 });
 
             modelBuilder.Entity("server.Models.User", b =>
@@ -194,7 +194,7 @@ namespace server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("server.Models.Booking", b =>

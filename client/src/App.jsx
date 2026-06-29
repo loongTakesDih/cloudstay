@@ -14,6 +14,7 @@ import PropertyDetails from "./pages/properties/PropertyDetails";
 import UserDashboard from "./pages/user/UserDashboard";
 import BookingDetails from "./pages/trips/BookingDetails";
 import HostOnboarding from "./pages/host/HostOnboarding";
+import BookingRequestDetails from "./pages/hosting/BookingRequestDetails";
 
 function HomeRedirect() {
   const { getRedirectPath, loading, user } = useAuth();
@@ -83,6 +84,9 @@ function App() {
               </HostCapabilityRoute>
             }
           />
+
+  
+<Route path="/hosting/requests/:id" element={<BookingRequestDetails />} />
 
           <Route
             path="/hosting/listings"

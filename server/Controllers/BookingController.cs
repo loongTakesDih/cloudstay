@@ -1,15 +1,16 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using System.Security.Claims;
 using server.Data;
+using server.DTOs.Bookings;
 using server.Models;
+using System.Security.Claims;
+
 
 namespace server.Controllers;
 
-[Authorize]
-[ApiController]
 [Route("api/[controller]")]
+[ApiController]
 public class BookingsController : ControllerBase
 {
     private readonly AppDbContext _context;
@@ -19,99 +20,130 @@ public class BookingsController : ControllerBase
         _context = context;
     }
 
-// POST: api/bookings
+    [Authorize]
     [HttpPost]
-    public async Task<IActionResult> CreateBooking([FromBody] BookingRequestDto request)
+    public async Task<ActionResult> RequestBooking(CreateBookingDto request)
     {
-        try
+        // 1. Get the current logged-in guest's ID
+        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdString, out int guestId))
         {
-            // 1. Get the logged-in Guest's User ID from the JWT Token
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized(new { message = "User not recognized." });
-            
-            int guestId = int.Parse(userIdClaim);
-
-            // 🚨 THE FIX: Force dates into strict UTC so PostgreSQL accepts them
-            var checkInUtc = request.CheckIn.ToUniversalTime();
-            var checkOutUtc = request.CheckOut.ToUniversalTime();
-
-            // 2. Validate dates
-            if (checkInUtc >= checkOutUtc)
-            {
-                return BadRequest(new { message = "Check-out date must be after the check-in date." });
-            }
-
-            // 3. Check if the property exists
-            var property = await _context.Properties.FindAsync(request.PropertyId);
-            if (property == null) return NotFound(new { message = "Property not found." });
-
-            // 4. Prevent double-booking
-            var isOverlapping = await _context.Bookings
-                .AnyAsync(b => b.PropertyId == request.PropertyId &&
-                               checkInUtc < b.CheckOut && 
-                               checkOutUtc > b.CheckIn);
-
-            if (isOverlapping)
-            {
-                return BadRequest(new { message = "This property is already booked for the selected dates." });
-            }
-
-            // 5. Calculate total price
-            int totalNights = (checkOutUtc - checkInUtc).Days;
-            
-            // Safety check: ensure totalNights is at least 1 just in case
-            if (totalNights < 1) totalNights = 1; 
-            
-            decimal totalPrice = totalNights * property.PricePerNight;
-
-            // 6. Create the Booking entity
-            var booking = new Booking
-            {
-                PropertyId = request.PropertyId,
-                GuestId = guestId,
-                CheckIn = checkInUtc,
-                CheckOut = checkOutUtc,
-                TotalPrice = totalPrice,
-                Status = "Confirmed",
-                CreatedAt = DateTime.UtcNow
-            };
-
-            _context.Bookings.Add(booking);
-            await _context.SaveChangesAsync();
-
-            return Ok(booking);
+            return Unauthorized(new { message = "Invalid user session." });
         }
-        catch (Exception ex)
+
+        // 2. Validate the dates
+        var checkInDate = request.CheckIn.Date;
+        var checkOutDate = request.CheckOut.Date;
+
+        if (checkInDate >= checkOutDate)
         {
-            // If it crashes, send the ACTUAL backend error text to the frontend box!
-            var actualError = ex.InnerException?.Message ?? ex.Message;
-            return BadRequest(new { message = $"Backend Error: {actualError}" });
+            return BadRequest(new { message = "Check-out date must be after check-in date." });
         }
+
+        if (checkInDate < DateTime.UtcNow.Date)
+        {
+            return BadRequest(new { message = "Cannot book dates in the past." });
+        }
+
+        // 3. Verify the property exists and is available
+        var property = await _context.Properties.FindAsync(request.PropertyId);
+        
+        if (property == null || !property.IsListed || !property.IsAvailable)
+        {
+            return NotFound(new { message = "Property is unavailable for booking." });
+        }
+
+        if (property.HostId == guestId)
+        {
+            return BadRequest(new { message = "Hosts cannot book their own property." });
+        }
+
+        // 4. Securely calculate the Total Price
+        var totalNights = (checkOutDate - checkInDate).Days;
+        var calculatedPrice = totalNights * property.PricePerNight;
+
+        // 5. Create the pending booking
+        var booking = new Booking
+        {
+            GuestId = guestId,
+            PropertyId = request.PropertyId,
+            // Convert to UTC to match PostgreSQL's TIMESTAMP WITH TIME ZONE
+            CheckIn = checkInDate.ToUniversalTime(), 
+            CheckOut = checkOutDate.ToUniversalTime(),
+            TotalPrice = calculatedPrice,
+            Status = "Pending", // Status defaults to Pending for Host review
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _context.Bookings.Add(booking);
+        await _context.SaveChangesAsync();
+
+        return Ok(new 
+        { 
+            message = "Booking request sent successfully.", 
+            bookingId = booking.Id 
+        });
     }
-
-    // GET: api/bookings/my-trips
-    [HttpGet("my-trips")]
-    public async Task<IActionResult> GetMyTrips()
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userIdClaim)) return Unauthorized();
-
-        int guestId = int.Parse(userIdClaim);
-
-        var trips = await _context.Bookings
-            .Where(b => b.GuestId == guestId)
-            .Include(b => b.Property) // Include property details like title/images
-            .OrderByDescending(b => b.CheckIn)
-            .ToListAsync();
-
-        return Ok(trips);
-    }
+[Authorize]
+[HttpGet("{id}")]
+public async Task<ActionResult<Booking>> GetBooking(int id) 
+{
+    var booking = await _context.Bookings
+        .Include(b => b.Property)
+        .Include(b => b.Guest)
+        .FirstOrDefaultAsync(b => b.Id == id);
+    return booking != null ? Ok(booking) : NotFound();
 }
 
-// Data Transfer Object for incoming requests
-public class BookingRequestDto
+[Authorize]
+[HttpPut("{id}/status")]
+public async Task<ActionResult> UpdateStatus(int id, [FromBody] StatusDto statusDto)
 {
-    public int PropertyId { get; set; }
-    public DateTime CheckIn { get; set; }
-    public DateTime CheckOut { get; set; }
+    var booking = await _context.Bookings.FindAsync(id);
+    if (booking == null) return NotFound();
+    
+    booking.Status = statusDto.Status;
+    await _context.SaveChangesAsync();
+    return Ok();
+}
+
+    [Authorize]
+[HttpGet("host/requests")]
+public async Task<ActionResult<IEnumerable<Booking>>> GetHostBookingRequests()
+{
+    var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if (!int.TryParse(userIdString, out int hostId))
+    {
+        return Unauthorized();
+    }
+
+    // This query finds all bookings for properties owned by this host
+    var requests = await _context.Bookings
+        .Include(b => b.Property)
+        .Include(b => b.Guest)
+        .Where(b => b.Property.HostId == hostId && b.Status == "Pending")
+        .OrderByDescending(b => b.CreatedAt)
+        .ToListAsync();
+
+    return Ok(requests);
+}
+
+[Authorize]
+[HttpGet("my-trips")]
+public async Task<ActionResult<IEnumerable<Booking>>> GetMyBookings()
+{
+    var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if (!int.TryParse(userIdString, out int guestId))
+    {
+        return Unauthorized();
+    }
+
+    var bookings = await _context.Bookings
+        .Include(b => b.Property)
+        .Where(b => b.GuestId == guestId)
+        .OrderByDescending(b => b.CreatedAt)
+        .ToListAsync();
+
+    return Ok(bookings);
+}
 }

@@ -1,10 +1,20 @@
 import { useNavigate } from "react-router-dom";
 import AppHeader from "../../components/AppHeader";
 import { useAuth } from "../../context/useAuth";
+import { getBookingRequests } from "../../api/api";
+import { useEffect, useState } from "react";
 
 function HostingDashboard() {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
+
+  const [requests, setRequests] = useState([]);
+
+  useEffect(() => {
+    getBookingRequests()
+    .then((data) => setRequests(data))
+    .catch((err) => console.error("Failed to fetch requests", err));
+    }, []);
 
   return (
     <div className="min-h-screen bg-[#fffaf7] text-slate-950">
@@ -83,7 +93,6 @@ function HostingDashboard() {
               View my listings
             </button>
           </article>
-
           <article className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-sm font-semibold text-rose-500">Guests</p>
             <h3 className="mt-3 text-xl font-bold tracking-normal text-slate-950">
@@ -92,10 +101,38 @@ function HostingDashboard() {
             <p className="mt-3 text-sm leading-6 text-slate-600">
               Review pending stays, guest details, and booking decisions here.
             </p>
-            <div className="mt-5 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-              No requests
+            
+            <div className="mt-5 space-y-3">
+              {requests.length > 0 ? (
+              <div className="mt-5 space-y-3">
+                {requests.length > 0 ? (
+                  requests.map((req) => ( // <--- Ensure 'req' is defined here
+                    <div 
+                      key={req.id} 
+                      onClick={() => navigate(`/hosting/requests/${req.id}`)}
+                      className="rounded-lg border border-slate-200 p-3 text-sm cursor-pointer hover:border-rose-500 transition"
+                    >
+                      <p className="font-bold">{req.guest?.username}</p>
+                      <p className="text-slate-600">
+                        {new Date(req.checkIn).toLocaleDateString()} - {new Date(req.checkOut).toLocaleDateString()}
+                      </p>
+                      <p className="font-semibold text-rose-600">RM {req.totalPrice}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p>No requests found.</p>
+                )}
+              </div>
+
+              ) : (
+                <div className="rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500 text-center">
+                  No requests
+                </div>
+              )}
             </div>
           </article>
+
+
 
           <article className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-sm font-semibold text-rose-500">Performance</p>
