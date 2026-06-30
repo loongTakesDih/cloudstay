@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { createListing } from "../../api/api";
+import { createListing, uploadPropertyImage } from "../../api/api";
 import { useAuth } from "../../context/useAuth";
 import AmenitySelector from "./AmenitySelector";
 import CounterControl from "./CounterControl";
@@ -89,6 +89,7 @@ const initialForm = {
   availableFrom: "",
   availableTo: "",
   pricePerNight: 120,
+  imageUrl: "",
 };
 
 const screens = [
@@ -207,6 +208,8 @@ function ListingWizard({ mode = "become-host" }) {
   const [screenIndex, setScreenIndex] = useState(0);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState("");
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   const currentScreen = screens[screenIndex];
   const datesValid =
@@ -281,7 +284,38 @@ function ListingWizard({ mode = "become-host" }) {
     availableFrom: form.availableFrom,
     availableTo: form.availableTo,
     isAvailable: true,
+    imageUrl: form.imageUrl,
   });
+
+  const handlePhotoChange = async (event) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    setError("");
+
+    if (!file.type.startsWith("image/")) {
+      setError("Choose an image file to upload.");
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(file);
+    setPhotoPreview(previewUrl);
+    setPhotoUploading(true);
+
+    try {
+      const upload = await uploadPropertyImage(file);
+      updateForm("imageUrl", upload.imageUrl);
+    } catch (err) {
+      setPhotoPreview("");
+      updateForm("imageUrl", "");
+      setError(err.response?.data?.message || "Could not upload this photo.");
+    } finally {
+      setPhotoUploading(false);
+    }
+  };
 
   const handleNext = () => {
     setError("");
@@ -316,6 +350,11 @@ function ListingWizard({ mode = "become-host" }) {
 
     if (!currentScreenValid) {
       setError("Complete the required details before saving.");
+      return;
+    }
+
+    if (photoUploading) {
+      setError("Wait for the photo upload to finish before saving.");
       return;
     }
 
@@ -467,19 +506,47 @@ function ListingWizard({ mode = "become-host" }) {
           <>
             <ScreenHeading
               kicker="Photos"
-              title="Add photos later"
-              helper="Photo upload is intentionally a placeholder for now. No upload, S3, or base64 storage is used in this flow."
+              title="Add a listing photo"
+              helper="Upload one clear photo for now. It goes straight to S3 and CloudStay saves the image URL with your listing."
             />
-            <div className="grid gap-4 rounded-3xl border border-dashed border-rose-200 bg-white/85 p-6 shadow-xl shadow-rose-100/40 sm:grid-cols-3">
-              {[1, 2, 3].map((item) => (
-                <div
-                  key={item}
-                  className="aspect-[4/3] rounded-2xl border border-white/80 bg-gradient-to-br from-slate-50 to-rose-50 shadow-sm"
+            <div className="rounded-3xl border border-dashed border-rose-200 bg-white/85 p-6 shadow-xl shadow-rose-100/40">
+              <label className="group grid cursor-pointer gap-4">
+                <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-white/80 bg-gradient-to-br from-slate-50 to-rose-50 shadow-sm">
+                  {photoPreview ? (
+                    <img
+                      src={photoPreview}
+                      alt="Listing preview"
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="grid h-full place-items-center px-6 text-center">
+                      <span className="text-base font-bold text-slate-500">
+                        Choose a JPEG, PNG, WebP, or GIF
+                      </span>
+                    </div>
+                  )}
+                  {photoUploading && (
+                    <div className="absolute inset-0 grid place-items-center bg-white/75 text-sm font-bold text-slate-700">
+                      Uploading...
+                    </div>
+                  )}
+                </div>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handlePhotoChange}
+                  className="sr-only"
+                  disabled={photoUploading}
                 />
-              ))}
-              <p className="sm:col-span-3 text-center text-sm font-bold text-slate-500">
-                Photo upload placeholder
-              </p>
+                <span className="mx-auto rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition group-hover:bg-rose-600">
+                  {form.imageUrl ? "Change photo" : "Upload photo"}
+                </span>
+              </label>
+              {form.imageUrl && (
+                <p className="mt-4 text-center text-sm font-bold text-emerald-600">
+                  Photo uploaded and ready to save
+                </p>
+              )}
             </div>
           </>
         );
@@ -609,10 +676,10 @@ function ListingWizard({ mode = "become-host" }) {
   return (
     <WizardShell
       canGoBack={screenIndex > 0}
-      canGoNext={currentScreenValid}
+      canGoNext={currentScreenValid && !photoUploading}
       error={error}
       isFinal={isFinal}
-      isSubmitting={saving}
+      isSubmitting={saving || photoUploading}
       nextLabel={isFinal ? (isCreateMode ? "Save listing" : "Finish setup") : "Next"}
       onBack={handleBack}
       onExit={handleExit}

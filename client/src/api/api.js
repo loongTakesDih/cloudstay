@@ -24,6 +24,27 @@ export const createListing = async (payload) => {
   return response.data;
 };
 
+export const createPropertyImageUploadUrl = async (file) => {
+  const response = await api.post("/uploads/property-image-url", {
+    fileName: file.name,
+    contentType: file.type,
+  });
+
+  return response.data;
+};
+
+export const uploadPropertyImage = async (file) => {
+  const upload = await createPropertyImageUploadUrl(file);
+
+  await axios.put(upload.uploadUrl, file, {
+    headers: {
+      "Content-Type": file.type,
+    },
+  });
+
+  return upload;
+};
+
 export const getMyListings = async () => {
   const response = await api.get("/properties/my");
   return response.data;
