@@ -345,7 +345,7 @@ function PropertyBookingCard({ listing, user }) {
           The host has received your request. You will be notified when they accept or decline.
         </p>
         <button 
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate("/my-trips")}
           className="mt-4 w-full rounded-full bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"
         >
           View My Trips

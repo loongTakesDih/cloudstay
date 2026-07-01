@@ -1,3 +1,5 @@
+import MarketplaceHeader from "../../components/MarketplaceHeader";
+
 function WizardShell({
   backLabel = "Back",
   canGoBack,
@@ -18,25 +20,10 @@ function WizardShell({
 
   return (
     <div className="min-h-screen bg-[linear-gradient(135deg,#fffaf7_0%,#fff1ec_48%,#f8fafc_100%)] text-slate-950">
-      <header className="fixed inset-x-0 top-0 z-20 border-b border-white/70 bg-white/85 shadow-sm shadow-rose-100/40 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-          <button
-            type="button"
-            onClick={onExit}
-            className="rounded-full px-2 text-xl font-bold tracking-normal text-rose-500 transition hover:text-rose-600"
-          >
-            CloudStay
-          </button>
-          <button
-            type="button"
-            onClick={onExit}
-            className="rounded-full border border-slate-200 bg-white/90 px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
-          >
-            Exit
-          </button>
-        </div>
-        <div className="border-t border-white/70 bg-white/60 px-4 py-3">
-          <div className="mx-auto flex max-w-6xl items-center gap-4">
+      <header className="fixed inset-x-0 top-0 z-30 border-b border-white/70 bg-white/90 shadow-sm shadow-rose-100/40 backdrop-blur-xl">
+        <MarketplaceHeader />
+        <div className="border-t border-white/70 bg-white/70 px-4 py-3">
+          <div className="mx-auto flex max-w-[1600px] items-center gap-4 sm:px-2 lg:px-6 2xl:px-8">
             <div className="grid flex-1 grid-cols-3 gap-2">
               {[0, 1, 2].map((section) => {
                 const start = section / 3;
@@ -62,12 +49,19 @@ function WizardShell({
             <span className="hidden min-w-12 text-right text-xs font-bold text-slate-500 sm:block">
               {percent}%
             </span>
+            <button
+              type="button"
+              onClick={onExit}
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:border-slate-300 hover:shadow-md"
+            >
+              Exit
+            </button>
           </div>
         </div>
       </header>
 
       <form onSubmit={onSubmit}>
-        <main className="mx-auto flex min-h-screen max-w-6xl items-center px-4 pb-32 pt-32 sm:px-6 lg:px-8">
+        <main className="mx-auto flex min-h-screen max-w-6xl items-center px-4 pb-32 pt-44 sm:px-6 lg:px-8">
           <section
             key={progressLabel}
             className="w-full animate-[fadeSlide_260ms_ease-out]"

@@ -1,12 +1,42 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import AppHeader from "../../components/AppHeader";
-import { useAuth } from "../../context/useAuth";
+import MarketplaceHeader from "../../components/MarketplaceHeader";
 import { getPublicListings } from "../../api/api.js";
+
+const applyFilters = (sourceListings, nextFilters) => {
+  const normalizedWhere = nextFilters.where.trim().toLowerCase();
+  const requestedGuests = Number(nextFilters.guests);
+  const requestedCheckIn = nextFilters.checkIn ? new Date(nextFilters.checkIn) : null;
+  const requestedCheckOut = nextFilters.checkOut ? new Date(nextFilters.checkOut) : null;
+
+  return sourceListings.filter((listing) => {
+    const matchesWhere =
+      normalizedWhere.length === 0 ||
+      [listing.title, listing.location, listing.address, listing.placeType]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(normalizedWhere));
+
+    const availableFrom = listing.availableFrom ? new Date(listing.availableFrom) : null;
+    const availableTo = listing.availableTo ? new Date(listing.availableTo) : null;
+
+    const matchesDates =
+      !requestedCheckIn ||
+      !requestedCheckOut ||
+      ((availableFrom === null || requestedCheckIn >= availableFrom) &&
+        (availableTo === null || requestedCheckOut <= availableTo));
+
+    const matchesGuests =
+      !nextFilters.guests ||
+      !Number.isFinite(requestedGuests) ||
+      requestedGuests <= 0 ||
+      requestedGuests <= (listing.guestCount || 0);
+
+    return matchesWhere && matchesDates && matchesGuests;
+  });
+};
 
 function ExploreStays() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
 
   const [listings, setListings] = useState([]);
   const [filteredListings, setFilteredListings] = useState([]);
@@ -19,44 +49,12 @@ function ExploreStays() {
     guests: "",
   });
 
-  const applyFilters = (sourceListings, nextFilters) => {
-    const normalizedWhere = nextFilters.where.trim().toLowerCase();
-    const requestedGuests = Number(nextFilters.guests);
-    const requestedCheckIn = nextFilters.checkIn ? new Date(nextFilters.checkIn) : null;
-    const requestedCheckOut = nextFilters.checkOut ? new Date(nextFilters.checkOut) : null;
-
-    return sourceListings.filter((listing) => {
-      const matchesWhere =
-        normalizedWhere.length === 0 ||
-        [listing.title, listing.location, listing.address, listing.placeType]
-          .filter(Boolean)
-          .some((value) => value.toLowerCase().includes(normalizedWhere));
-
-      const availableFrom = listing.availableFrom ? new Date(listing.availableFrom) : null;
-      const availableTo = listing.availableTo ? new Date(listing.availableTo) : null;
-
-      const matchesDates =
-        !requestedCheckIn ||
-        !requestedCheckOut ||
-        ((availableFrom === null || requestedCheckIn >= availableFrom) &&
-          (availableTo === null || requestedCheckOut <= availableTo));
-
-      const matchesGuests =
-        !nextFilters.guests ||
-        !Number.isFinite(requestedGuests) ||
-        requestedGuests <= 0 ||
-        requestedGuests <= (listing.guestCount || 0);
-
-      return matchesWhere && matchesDates && matchesGuests;
-    });
-  };
-
   useEffect(() => {
     const fetchListings = async () => {
       try {
         const data = await getPublicListings();
         setListings(data);
-        setFilteredListings(applyFilters(data, filters));
+        setFilteredListings(data);
       } catch (err) {
         console.error("Failed to fetch listings", err);
         setError("Could not load stays. Please try again later.");
@@ -80,40 +78,10 @@ function ExploreStays() {
 
   return (
     <div className="min-h-screen bg-[#fffaf7] text-slate-950">
-      <AppHeader
-        title="Explore CloudStay"
-        subtitle="Find your next weekend escape or apartment."
-        actions={
-          <>
-            {user ? (
-              <>
-                <button
-                  onClick={() => navigate("/dashboard")}
-                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-                >
-                  Dashboard
-                </button>
-                <button
-                  onClick={logout}
-                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-                >
-                  Logout
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => navigate("/login")}
-                className="rounded-lg bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-600"
-              >
-                Login
-              </button>
-            )}
-          </>
-        }
-      />
+      <MarketplaceHeader />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-        <section className="mb-8">
+      <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-10 lg:py-8 2xl:px-12">
+        <section className="mb-9">
           <div className="rounded-[2rem] border border-slate-200 bg-white p-2 shadow-xl shadow-slate-200/70">
             <div className="grid gap-2 lg:grid-cols-[1.45fr_1fr_1fr_auto]">
               <label className="rounded-[1.5rem] px-5 py-4 text-slate-950 lg:border-r lg:border-slate-200">
@@ -209,13 +177,16 @@ function ExploreStays() {
           </div>
         </section>
 
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold tracking-normal text-slate-950">
-            Available Stays
+        <div className="mb-6 flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+          <div>
+          <h1 className="text-2xl font-bold tracking-normal text-slate-950 sm:text-3xl">
+            Explore stays
           </h1>
           <p className="mt-2 text-sm font-semibold text-slate-600">
             {filteredListings.length} {filteredListings.length === 1 ? "stay" : "stays"} found.
           </p>
+          </div>
+          <p className="text-sm text-slate-500">Homes and getaways hosted by the CloudStay community</p>
         </div>
 
         {error && (
@@ -234,7 +205,7 @@ function ExploreStays() {
             <p className="mt-2 text-sm text-slate-500">Try changing the destination, dates, or guest count.</p>
           </div>
         ) : (
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-x-5 gap-y-8 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             {filteredListings.map((listing) => (
               <div
                 key={listing.id}

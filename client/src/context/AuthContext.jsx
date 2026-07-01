@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import api, { completeHostOnboarding } from "../api/api.js";
+import api, { completeHostOnboarding as completeHostOnboardingRequest } from "../api/api.js";
 import { AuthContext } from "./AuthContextDef";
 
 const TOKEN_KEY = "cloudstay_token";
@@ -54,7 +54,7 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   const getRedirectPath = () => {
-    return "/dashboard";
+    return "/";
   };
 
   const saveAuth = (authData) => {
