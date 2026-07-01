@@ -105,16 +105,8 @@ public class PropertiesController : ControllerBase
         _context.Properties.Add(property);
         await _context.SaveChangesAsync();
 
-        if (!string.IsNullOrWhiteSpace(request.ImageUrl))
-        {
-            _context.PropertyImages.Add(new PropertyImage
-            {
-                ImageUrl = request.ImageUrl.Trim(),
-                PropertyId = property.Id
-            });
-
-            await _context.SaveChangesAsync();
-        }
+        AddPropertyImages(property.Id, request);
+        await _context.SaveChangesAsync();
 
         return Created($"/api/properties/{property.Id}", await MapPropertyAsync(property, userId.Value));
     }
@@ -184,6 +176,7 @@ public class PropertiesController : ControllerBase
         }
 
         ApplyPropertyChanges(property, request);
+        ReplacePropertyImages(property.Id, request);
         await _context.SaveChangesAsync();
 
         return Ok(await MapPropertyAsync(property, userId.Value));
@@ -403,10 +396,11 @@ public class PropertiesController : ControllerBase
         Property property,
         int? currentUserId = null)
     {
-        var imageUrl = await _context.PropertyImages
+        var imageUrls = await _context.PropertyImages
             .Where(image => image.PropertyId == property.Id)
+            .OrderBy(image => image.Id)
             .Select(image => image.ImageUrl)
-            .FirstOrDefaultAsync();
+            .ToListAsync();
 
         var host = await _context.Users
             .Where(user => user.Id == property.HostId)
@@ -419,7 +413,7 @@ public class PropertiesController : ControllerBase
             })
             .FirstOrDefaultAsync();
 
-        return MapProperty(property, imageUrl, host, currentUserId);
+        return MapProperty(property, imageUrls, host, currentUserId);
     }
 
     private async Task<List<PropertyResponseDto>> MapPropertiesAsync(
@@ -430,13 +424,14 @@ public class PropertiesController : ControllerBase
         var hostIds = properties.Select(property => property.HostId).Distinct().ToList();
         var images = await _context.PropertyImages
             .Where(image => propertyIds.Contains(image.PropertyId))
+            .OrderBy(image => image.Id)
+            .ToListAsync();
+
+        var imagesByPropertyId = images
             .GroupBy(image => image.PropertyId)
-            .Select(group => new
-            {
-                PropertyId = group.Key,
-                ImageUrl = group.Select(image => image.ImageUrl).FirstOrDefault()
-            })
-            .ToDictionaryAsync(image => image.PropertyId, image => image.ImageUrl);
+            .ToDictionary(
+                group => group.Key,
+                group => group.Select(image => image.ImageUrl).ToList());
 
         var hosts = await _context.Users
             .Where(user => hostIds.Contains(user.Id))
@@ -452,19 +447,21 @@ public class PropertiesController : ControllerBase
         return properties
             .Select(property =>
             {
-                images.TryGetValue(property.Id, out var imageUrl);
+                imagesByPropertyId.TryGetValue(property.Id, out var imageUrls);
                 hosts.TryGetValue(property.HostId, out var host);
-                return MapProperty(property, imageUrl, host, currentUserId);
+                return MapProperty(property, imageUrls ?? [], host, currentUserId);
             })
             .ToList();
     }
 
     internal static PropertyResponseDto MapProperty(
         Property property,
-        string? imageUrl = null,
+        List<string>? imageUrls = null,
         PropertyHostSummaryDto? host = null,
         int? currentUserId = null)
     {
+        imageUrls ??= [];
+
         return new PropertyResponseDto
         {
             Id = property.Id,
@@ -473,7 +470,8 @@ public class PropertiesController : ControllerBase
             PricePerNight = property.PricePerNight,
             Location = property.Location,
             HostId = property.HostId,
-            ImageUrl = imageUrl,
+            ImageUrl = imageUrls.FirstOrDefault(),
+            ImageUrls = imageUrls,
             PropertyCategory = property.PropertyCategory,
             PlaceType = property.PlaceType,
             Address = property.Address,
@@ -493,6 +491,40 @@ public class PropertiesController : ControllerBase
             IsOwner = currentUserId != null && property.HostId == currentUserId.Value,
             Host = host
         };
+    }
+
+    internal static List<string> NormalizeImageUrls(CreatePropertyRequestDto request)
+    {
+        var imageUrls = request.ImageUrls
+            .Append(request.ImageUrl)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Select(value => value!.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(10)
+            .ToList();
+
+        return imageUrls;
+    }
+
+    private void AddPropertyImages(int propertyId, CreatePropertyRequestDto request)
+    {
+        var images = NormalizeImageUrls(request)
+            .Select(imageUrl => new PropertyImage
+            {
+                ImageUrl = imageUrl,
+                PropertyId = propertyId
+            });
+
+        _context.PropertyImages.AddRange(images);
+    }
+
+    private void ReplacePropertyImages(int propertyId, CreatePropertyRequestDto request)
+    {
+        var existingImages = _context.PropertyImages
+            .Where(image => image.PropertyId == propertyId);
+
+        _context.PropertyImages.RemoveRange(existingImages);
+        AddPropertyImages(propertyId, request);
     }
 
     private static string? JoinSelections(List<string>? values)

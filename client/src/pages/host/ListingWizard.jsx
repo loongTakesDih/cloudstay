@@ -90,6 +90,7 @@ const initialForm = {
   availableTo: "",
   pricePerNight: 120,
   imageUrl: "",
+  imageUrls: [],
 };
 
 const screens = [
@@ -208,7 +209,6 @@ function ListingWizard({ mode = "become-host" }) {
   const [screenIndex, setScreenIndex] = useState(0);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
-  const [photoPreview, setPhotoPreview] = useState("");
   const [photoUploading, setPhotoUploading] = useState(false);
 
   const currentScreen = screens[screenIndex];
@@ -284,37 +284,59 @@ function ListingWizard({ mode = "become-host" }) {
     availableFrom: form.availableFrom,
     availableTo: form.availableTo,
     isAvailable: true,
-    imageUrl: form.imageUrl,
+    imageUrl: form.imageUrls[0] || "",
+    imageUrls: form.imageUrls,
   });
 
   const handlePhotoChange = async (event) => {
-    const file = event.target.files?.[0];
+    const files = Array.from(event.target.files || []);
 
-    if (!file) {
+    if (files.length === 0) {
       return;
     }
 
     setError("");
 
-    if (!file.type.startsWith("image/")) {
+    if (files.some((file) => !file.type.startsWith("image/"))) {
       setError("Choose an image file to upload.");
       return;
     }
 
-    const previewUrl = URL.createObjectURL(file);
-    setPhotoPreview(previewUrl);
     setPhotoUploading(true);
 
     try {
-      const upload = await uploadPropertyImage(file);
-      updateForm("imageUrl", upload.imageUrl);
+      const uploadedImages = await Promise.all(
+        files.map((file) => uploadPropertyImage(file))
+      );
+      const uploadedUrls = uploadedImages.map((upload) => upload.imageUrl);
+
+      setForm((currentForm) => {
+        const imageUrls = [...currentForm.imageUrls, ...uploadedUrls].slice(0, 10);
+
+        return {
+          ...currentForm,
+          imageUrl: imageUrls[0] || "",
+          imageUrls,
+        };
+      });
     } catch (err) {
-      setPhotoPreview("");
-      updateForm("imageUrl", "");
       setError(err.response?.data?.message || "Could not upload this photo.");
     } finally {
       setPhotoUploading(false);
+      event.target.value = "";
     }
+  };
+
+  const removePhoto = (imageUrl) => {
+    setForm((currentForm) => {
+      const imageUrls = currentForm.imageUrls.filter((url) => url !== imageUrl);
+
+      return {
+        ...currentForm,
+        imageUrl: imageUrls[0] || "",
+        imageUrls,
+      };
+    });
   };
 
   const handleNext = () => {
@@ -507,26 +529,39 @@ function ListingWizard({ mode = "become-host" }) {
             <ScreenHeading
               kicker="Photos"
               title="Add a listing photo"
-              helper="Upload one clear photo for now. It goes straight to S3 and CloudStay saves the image URL with your listing."
+              helper="Upload up to 10 clear photos. They go straight to S3 and CloudStay saves the image URLs with your listing."
             />
             <div className="rounded-3xl border border-dashed border-rose-200 bg-white/85 p-6 shadow-xl shadow-rose-100/40">
-              <label className="group grid cursor-pointer gap-4">
-                <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-white/80 bg-gradient-to-br from-slate-50 to-rose-50 shadow-sm">
-                  {photoPreview ? (
-                    <img
-                      src={photoPreview}
-                      alt="Listing preview"
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="grid h-full place-items-center px-6 text-center">
-                      <span className="text-base font-bold text-slate-500">
-                        Choose a JPEG, PNG, WebP, or GIF
-                      </span>
+              {form.imageUrls.length > 0 && (
+                <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                  {form.imageUrls.map((imageUrl, index) => (
+                    <div
+                      key={imageUrl}
+                      className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-white/80 bg-slate-100 shadow-sm"
+                    >
+                      <img
+                        src={imageUrl}
+                        alt={`Listing preview ${index + 1}`}
+                        className="h-full w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removePhoto(imageUrl)}
+                        className="absolute right-3 top-3 rounded-full bg-white/95 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-red-50 hover:text-red-700"
+                      >
+                        Remove
+                      </button>
                     </div>
-                  )}
+                  ))}
+                </div>
+              )}
+              <label className="group grid cursor-pointer gap-4">
+                <div className="relative grid min-h-48 place-items-center rounded-2xl border border-white/80 bg-gradient-to-br from-slate-50 to-rose-50 px-6 text-center shadow-sm">
+                  <span className="text-base font-bold text-slate-500">
+                    Choose JPEG, PNG, WebP, or GIF images
+                  </span>
                   {photoUploading && (
-                    <div className="absolute inset-0 grid place-items-center bg-white/75 text-sm font-bold text-slate-700">
+                    <div className="absolute inset-0 grid place-items-center rounded-2xl bg-white/75 text-sm font-bold text-slate-700">
                       Uploading...
                     </div>
                   )}
@@ -534,17 +569,18 @@ function ListingWizard({ mode = "become-host" }) {
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/gif"
+                  multiple
                   onChange={handlePhotoChange}
                   className="sr-only"
-                  disabled={photoUploading}
+                  disabled={photoUploading || form.imageUrls.length >= 10}
                 />
                 <span className="mx-auto rounded-2xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition group-hover:bg-rose-600">
-                  {form.imageUrl ? "Change photo" : "Upload photo"}
+                  {form.imageUrls.length > 0 ? "Add more photos" : "Upload photos"}
                 </span>
               </label>
-              {form.imageUrl && (
+              {form.imageUrls.length > 0 && (
                 <p className="mt-4 text-center text-sm font-bold text-emerald-600">
-                  Photo uploaded and ready to save
+                  {form.imageUrls.length} photo{form.imageUrls.length === 1 ? "" : "s"} uploaded and ready to save
                 </p>
               )}
             </div>

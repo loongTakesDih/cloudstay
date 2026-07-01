@@ -43,13 +43,16 @@ const formatMemberSince = (value) => {
   }).format(date);
 };
 
-function PropertyPhotoGallery({ imageUrl, title }) {
+function PropertyPhotoGallery({ imageUrl, imageUrls = [], title }) {
+  const photos = imageUrls.length > 0 ? imageUrls : imageUrl ? [imageUrl] : [];
+  const [heroPhoto, ...secondaryPhotos] = photos;
+
   return (
     <section className="grid gap-2 overflow-hidden rounded-3xl bg-slate-100 md:grid-cols-[2fr_1fr]">
       <div className="aspect-[4/3] bg-slate-100 md:aspect-[16/10]">
-        {imageUrl ? (
+        {heroPhoto ? (
           <img
-            src={imageUrl}
+            src={heroPhoto}
             alt={title}
             className="h-full w-full object-cover"
           />
@@ -63,14 +66,38 @@ function PropertyPhotoGallery({ imageUrl, title }) {
         {[1, 2].map((item) => (
           <div
             key={item}
-            className="relative bg-gradient-to-br from-slate-100 to-rose-50"
+            className="relative overflow-hidden bg-gradient-to-br from-slate-100 to-rose-50"
           >
-            <div className="absolute inset-0 flex items-center justify-center text-sm font-bold text-slate-400">
-              Photo placeholder
-            </div>
+            {secondaryPhotos[item - 1] ? (
+              <img
+                src={secondaryPhotos[item - 1]}
+                alt={`${title} ${item + 1}`}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center text-sm font-bold text-slate-400">
+                Photo placeholder
+              </div>
+            )}
           </div>
         ))}
       </div>
+      {photos.length > 3 && (
+        <div className="grid gap-2 md:col-span-2 md:grid-cols-4">
+          {photos.slice(3).map((photo, index) => (
+            <div
+              key={photo}
+              className="aspect-[4/3] overflow-hidden bg-slate-100"
+            >
+              <img
+                src={photo}
+                alt={`${title} ${index + 4}`}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -482,7 +509,11 @@ function PropertyDetails() {
             </div>
           </section>
 
-          <PropertyPhotoGallery imageUrl={listing.imageUrl} title={listing.title} />
+          <PropertyPhotoGallery
+            imageUrl={listing.imageUrl}
+            imageUrls={listing.imageUrls}
+            title={listing.title}
+          />
 
           <section className="grid gap-8 lg:grid-cols-[1fr_340px]">
             <div className="rounded-3xl bg-white p-6 shadow-sm">

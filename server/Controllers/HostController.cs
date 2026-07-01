@@ -71,13 +71,15 @@ public class HostController : ControllerBase
         _context.Properties.Add(property);
         await _context.SaveChangesAsync();
 
-        if (!string.IsNullOrWhiteSpace(request.ImageUrl))
+        var imageUrls = PropertiesController.NormalizeImageUrls(request);
+
+        if (imageUrls.Count > 0)
         {
-            _context.PropertyImages.Add(new PropertyImage
+            _context.PropertyImages.AddRange(imageUrls.Select(imageUrl => new PropertyImage
             {
-                ImageUrl = request.ImageUrl.Trim(),
+                ImageUrl = imageUrl,
                 PropertyId = property.Id
-            });
+            }));
 
             await _context.SaveChangesAsync();
         }
@@ -97,7 +99,7 @@ public class HostController : ControllerBase
             },
             Listing = PropertiesController.MapProperty(
                 property,
-                string.IsNullOrWhiteSpace(request.ImageUrl) ? null : request.ImageUrl.Trim())
+                imageUrls)
         });
     }
 }

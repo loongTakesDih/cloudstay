@@ -12,6 +12,8 @@ public class CreatePropertyRequestDto
 
     public string? ImageUrl { get; set; }
 
+    public List<string> ImageUrls { get; set; } = [];
+
     public string PropertyCategory { get; set; } = string.Empty;
 
     public string PlaceType { get; set; } = string.Empty;
