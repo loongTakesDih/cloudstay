@@ -32,8 +32,10 @@ public class BookingsController : ControllerBase
         }
 
         // 2. Validate the dates
-        var checkInDate = request.CheckIn.Date;
-        var checkOutDate = request.CheckOut.Date;
+        // Booking dates are calendar dates, not local timestamps. Normalizing them
+        // to UTC preserves the selected day and keeps Npgsql timestamptz comparisons valid.
+        var checkInDate = DateTime.SpecifyKind(request.CheckIn.Date, DateTimeKind.Utc);
+        var checkOutDate = DateTime.SpecifyKind(request.CheckOut.Date, DateTimeKind.Utc);
 
         if (checkInDate >= checkOutDate)
         {
@@ -58,6 +60,34 @@ public class BookingsController : ControllerBase
             return BadRequest(new { message = "Hosts cannot book their own property." });
         }
 
+        if ((property.AvailableFrom.HasValue && checkInDate < property.AvailableFrom.Value.Date) ||
+            (property.AvailableTo.HasValue && checkOutDate > property.AvailableTo.Value.Date))
+        {
+            return BadRequest(new { message = "The selected dates are outside this listing's availability." });
+        }
+
+        var requestedGuests = request.Adults + request.Children;
+        if (request.Adults < 1 || request.Children < 0 || request.Infants < 0)
+        {
+            return BadRequest(new { message = "Guest counts are invalid." });
+        }
+
+        if (requestedGuests > (property.GuestCount ?? 0))
+        {
+            return BadRequest(new { message = $"This listing allows a maximum of {property.GuestCount ?? 0} guests, excluding infants." });
+        }
+
+        var overlapsAcceptedBooking = await _context.Bookings.AnyAsync(booking =>
+            booking.PropertyId == request.PropertyId &&
+            booking.Status == "Accepted" &&
+            booking.CheckIn < checkOutDate &&
+            booking.CheckOut > checkInDate);
+
+        if (overlapsAcceptedBooking)
+        {
+            return Conflict(new { message = "This property is already booked for the selected dates." });
+        }
+
         // 4. Securely calculate the Total Price
         var totalNights = (checkOutDate - checkInDate).Days;
         var calculatedPrice = totalNights * property.PricePerNight;
@@ -67,9 +97,11 @@ public class BookingsController : ControllerBase
         {
             GuestId = guestId,
             PropertyId = request.PropertyId,
-            // Convert to UTC to match PostgreSQL's TIMESTAMP WITH TIME ZONE
-            CheckIn = checkInDate.ToUniversalTime(), 
-            CheckOut = checkOutDate.ToUniversalTime(),
+            CheckIn = checkInDate,
+            CheckOut = checkOutDate,
+            Adults = request.Adults,
+            Children = request.Children,
+            Infants = request.Infants,
             TotalPrice = calculatedPrice,
             Status = "Pending", // Status defaults to Pending for Host review
             CreatedAt = DateTime.UtcNow
@@ -123,6 +155,9 @@ public async Task<ActionResult> GetBooking(int id)
             b.PropertyId,
             b.CheckIn,
             b.CheckOut,
+            b.Adults,
+            b.Children,
+            b.Infants,
             b.Status,
             b.TotalPrice,
             b.CreatedAt,
@@ -169,7 +204,51 @@ public async Task<ActionResult> UpdateStatus(int id, [FromBody] StatusDto status
         return Forbid();
     }
 
-    booking.Status = statusDto.Status;
+    var currentStatus = booking.Status.Trim().ToLowerInvariant();
+    var nextStatus = statusDto.Status?.Trim();
+    var normalizedNextStatus = nextStatus?.ToLowerInvariant();
+    var isValidTransition =
+        currentStatus == "pending" &&
+        (normalizedNextStatus == "accepted" || normalizedNextStatus == "declined") ||
+        currentStatus == "accepted" &&
+        normalizedNextStatus == "completed" &&
+        booking.CheckOut.Date <= DateTime.UtcNow.Date;
+
+    if (!isValidTransition)
+    {
+        return BadRequest(new
+        {
+            message = currentStatus == "accepted" && normalizedNextStatus == "completed"
+                ? "Checkout can only be completed on or after the checkout date."
+                : "This booking status change is not allowed."
+        });
+    }
+
+    if (normalizedNextStatus == "accepted")
+    {
+        var hasAcceptedConflict = await _context.Bookings.AnyAsync(other =>
+            other.Id != booking.Id &&
+            other.PropertyId == booking.PropertyId &&
+            other.Status == "Accepted" &&
+            other.CheckIn < booking.CheckOut &&
+            other.CheckOut > booking.CheckIn);
+
+        if (hasAcceptedConflict)
+        {
+            return Conflict(new
+            {
+                message = "Another accepted booking already occupies these dates."
+            });
+        }
+    }
+
+    booking.Status = normalizedNextStatus switch
+    {
+        "accepted" => "Accepted",
+        "declined" => "Declined",
+        "completed" => "Completed",
+        _ => booking.Status
+    };
     await _context.SaveChangesAsync();
     return Ok();
 }
@@ -199,6 +278,9 @@ public async Task<ActionResult> GetHostBookingRequests()
             b.PropertyId,
             b.CheckIn,
             b.CheckOut,
+            b.Adults,
+            b.Children,
+            b.Infants,
             b.Status,
             b.TotalPrice,
             b.CreatedAt,
@@ -244,6 +326,9 @@ public async Task<ActionResult> GetMyBookings()
             b.PropertyId,
             b.CheckIn,
             b.CheckOut,
+            b.Adults,
+            b.Children,
+            b.Infants,
             b.Status,
             b.TotalPrice,
             b.CreatedAt,

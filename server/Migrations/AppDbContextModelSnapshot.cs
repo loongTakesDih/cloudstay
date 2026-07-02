@@ -30,16 +30,25 @@ namespace server.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("Adults")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("CheckIn")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CheckOut")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("Children")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("GuestId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Infants")
                         .HasColumnType("integer");
 
                     b.Property<int>("PropertyId")
@@ -54,9 +63,11 @@ namespace server.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("GuestId");
+
                     b.HasIndex("PropertyId");
 
-                    b.ToTable("Bookings", (string)null);
+                    b.ToTable("Bookings");
                 });
 
             modelBuilder.Entity("server.Models.Property", b =>
@@ -68,6 +79,9 @@ namespace server.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
                     b.Property<string>("Address")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AddressLine")
                         .HasColumnType("text");
 
                     b.Property<DateTime?>("AvailableFrom")
@@ -84,6 +98,12 @@ namespace server.Migrations
 
                     b.Property<int?>("BedroomCount")
                         .HasColumnType("integer");
+
+                    b.Property<string>("City")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Country")
+                        .HasColumnType("text");
 
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -111,6 +131,9 @@ namespace server.Migrations
                     b.Property<string>("PlaceType")
                         .HasColumnType("text");
 
+                    b.Property<string>("PostalCode")
+                        .HasColumnType("text");
+
                     b.Property<decimal>("PricePerNight")
                         .HasColumnType("numeric");
 
@@ -121,6 +144,9 @@ namespace server.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("SafetyFeatures")
+                        .HasColumnType("text");
+
+                    b.Property<string>("State")
                         .HasColumnType("text");
 
                     b.Property<string>("Title")
@@ -137,7 +163,7 @@ namespace server.Migrations
 
                     b.HasIndex("HostId");
 
-                    b.ToTable("Properties", (string)null);
+                    b.ToTable("Properties");
                 });
 
             modelBuilder.Entity("server.Models.PropertyImage", b =>
@@ -159,7 +185,7 @@ namespace server.Migrations
 
                     b.HasIndex("PropertyId");
 
-                    b.ToTable("PropertyImages", (string)null);
+                    b.ToTable("PropertyImages");
                 });
 
             modelBuilder.Entity("server.Models.User", b =>
@@ -194,16 +220,24 @@ namespace server.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Users", (string)null);
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("server.Models.Booking", b =>
                 {
+                    b.HasOne("server.Models.User", "Guest")
+                        .WithMany()
+                        .HasForeignKey("GuestId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("server.Models.Property", "Property")
                         .WithMany()
                         .HasForeignKey("PropertyId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("Guest");
 
                     b.Navigation("Property");
                 });

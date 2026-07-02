@@ -6,10 +6,8 @@ import Login from "./pages/auth/Login";
 import Register from "./pages/auth/Register";
 import Explore from "./pages/properties/Explore";
 import HostingDashboard from "./pages/hosting/HostingDashboard";
-import BookingHistoryPage from "./pages/hosting/BookingHistoryPage";
 import NewListing from "./pages/hosting/NewListing";
 import PerformancePage from "./pages/hosting/PerformancePage";
-import ViewListing from "./pages/hosting/ViewListing";
 import ProfilePage from "./pages/user/ProfilePage";
 import MyTripsPage from "./pages/user/MyTripsPage";
 import SavedPlacesPage from "./pages/user/SavedPlacesPage";
@@ -103,7 +101,7 @@ function App() {
             path="/hosting/history"
             element={
               <HostCapabilityRoute>
-                <BookingHistoryPage />
+                <Navigate to="/hosting/dashboard?tab=bookings" replace />
               </HostCapabilityRoute>
             }
           />
@@ -130,7 +128,7 @@ function App() {
             path="/hosting/listings"
             element={
               <HostCapabilityRoute>
-                <ViewListing />
+                <Navigate to="/hosting/dashboard?tab=listings" replace />
               </HostCapabilityRoute>
             }
           />

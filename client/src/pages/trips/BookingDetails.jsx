@@ -21,6 +21,8 @@ const getStatusClasses = (status) => {
       return "bg-amber-50 text-amber-700 ring-1 ring-amber-200";
     case "Declined":
       return "bg-rose-50 text-rose-700 ring-1 ring-rose-200";
+    case "Completed":
+      return "bg-sky-50 text-sky-700 ring-1 ring-sky-200";
     default:
       return "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
   }

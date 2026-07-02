@@ -14,6 +14,28 @@ function NotificationsPage() {
     setNotifications(markNotificationsRead(user.userId, unread.map((notification) => notification.id)));
   };
 
+  const getNotificationLabel = (notification) => {
+    if (notification.type === "message") {
+      return notification.direction === "incoming" ? "Incoming message" : "Sent message";
+    }
+    if (notification.audience === "host" || notification.direction === "incoming") {
+      return "Incoming request";
+    }
+    return "Your booking";
+  };
+
+  const openNotification = (notification) => {
+    if (!notification.read) {
+      setNotifications(markNotificationsRead(user.userId, [notification.id]));
+    }
+    const fallbackPath =
+      notification.audience === "host"
+        ? `/hosting/requests/${notification.bookingId}`
+        : `/trips/${notification.bookingId}`;
+    const target = notification.targetPath || (notification.bookingId ? fallbackPath : "");
+    if (target) navigate(target);
+  };
+
   return (
     <div className="min-h-screen bg-[#fffaf7] text-slate-950">
       <AppHeader />
@@ -42,7 +64,7 @@ function NotificationsPage() {
               <button
                 key={notification.id}
                 type="button"
-                onClick={() => notification.bookingId && navigate(`/trips/${notification.bookingId}`)}
+                onClick={() => openNotification(notification)}
                 className={`block w-full rounded-3xl border p-5 text-left transition hover:border-rose-200 ${
                   notification.read ? "border-slate-200 bg-white" : "border-rose-100 bg-rose-50/60"
                 }`}
@@ -52,7 +74,7 @@ function NotificationsPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-4">
                       <h2 className="font-bold text-slate-950">{notification.title || "CloudStay update"}</h2>
-                      <span className="shrink-0 text-xs font-semibold uppercase text-slate-500">{notification.status || "Update"}</span>
+                      <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase text-slate-600">{getNotificationLabel(notification)}</span>
                     </div>
                     <p className="mt-2 text-sm leading-6 text-slate-600">{notification.message}</p>
                     <p className="mt-3 text-xs text-slate-400">{new Date(notification.createdAt).toLocaleString()}</p>

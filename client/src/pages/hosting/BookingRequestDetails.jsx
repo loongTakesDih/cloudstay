@@ -43,20 +43,25 @@ function BookingRequestDetails() {
       if (guestId) {
         addNotification(guestId, {
           type: "booking-status",
-          title: status === "Accepted" ? "Booking accepted" : "Booking declined",
+          audience: "guest",
+          direction: "outgoing",
+          title: status === "Accepted" ? "Booking accepted" : status === "Completed" ? "Checkout completed" : "Booking declined",
           message:
             status === "Accepted"
               ? `${booking.property?.title || "Your stay"} has been accepted by the host.`
-              : `${booking.property?.title || "Your stay"} was declined by the host.`,
+              : status === "Completed"
+                ? `${booking.property?.title || "Your stay"} has been checked out successfully.`
+                : `${booking.property?.title || "Your stay"} was declined by the host.`,
           bookingId: booking.id,
           propertyId: booking.property?.id ?? booking.propertyId,
           propertyTitle: booking.property?.title || "CloudStay stay",
           status,
+          targetPath: `/trips/${booking.id}`,
         });
       }
       navigate("/hosting/dashboard");
-    } catch (err) {
-      alert("Failed to update status.");
+    } catch (requestError) {
+      alert(requestError.response?.data?.message || "Failed to update status.");
     }
   };
 
@@ -64,6 +69,9 @@ function BookingRequestDetails() {
   if (!booking) return <main className="p-8">Booking not found.</main>;
 
   const isPending = booking.status === "Pending";
+  const isAccepted = booking.status === "Accepted";
+  const canCompleteCheckout =
+    isAccepted && new Date(booking.checkOut).setHours(0, 0, 0, 0) <= new Date().setHours(0, 0, 0, 0);
 
   return (
     <div className="min-h-screen bg-[linear-gradient(135deg,#fffaf7_0%,#fff1ec_52%,#f8fafc_100%)] text-slate-950">
@@ -120,9 +128,23 @@ function BookingRequestDetails() {
                   Accept Booking
                 </button>
               </div>
+            ) : canCompleteCheckout ? (
+              <div className="pt-6">
+                <button
+                  onClick={() => handleStatusChange("Completed")}
+                  className="w-full rounded-full bg-emerald-600 py-3 font-bold text-white transition hover:bg-emerald-700"
+                >
+                  Confirm successful checkout
+                </button>
+                <p className="mt-3 text-center text-xs font-semibold text-slate-500">
+                  This returns the property to the homepage for new reservations.
+                </p>
+              </div>
             ) : (
               <div className="rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-600">
-                This booking is already marked as {booking.status.toLowerCase()} and is part of your booking history.
+                {isAccepted
+                  ? `This stay is accepted. Checkout can be confirmed on ${formatDate(booking.checkOut)}.`
+                  : `This booking is marked as ${booking.status.toLowerCase()} and is part of your booking history.`}
               </div>
             )}
           </div>

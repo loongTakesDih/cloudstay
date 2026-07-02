@@ -30,6 +30,15 @@ public class Booking
     public DateTime CheckOut { get; set; }
 
     [Required]
+    public int Adults { get; set; } = 1;
+
+    [Required]
+    public int Children { get; set; }
+
+    [Required]
+    public int Infants { get; set; }
+
+    [Required]
     public string Status { get; set; } = "Pending";
 
     [Required]

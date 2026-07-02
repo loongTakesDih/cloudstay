@@ -15,6 +15,19 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401 && localStorage.getItem("cloudstay_token")) {
+      localStorage.removeItem("cloudstay_token");
+      delete api.defaults.headers.common.Authorization;
+      window.dispatchEvent(new Event("cloudstay:unauthorized"));
+    }
+
+    return Promise.reject(error);
+  },
+);
+
 // ==========================================
 // AUTHENTICATION
 // ==========================================

@@ -32,7 +32,7 @@ const MenuIcon = ({ type }) => (
   </span>
 );
 
-function MarketplaceHeader() {
+function MarketplaceHeader({ centerContent = null, hostingMode = false }) {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
   const menuRef = useRef(null);
@@ -64,6 +64,11 @@ function MarketplaceHeader() {
   };
 
   const handleHosting = () => {
+    if (hostingMode) {
+      goTo("/");
+      return;
+    }
+
     if (!user) {
       goTo("/login");
       return;
@@ -80,7 +85,7 @@ function MarketplaceHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur-xl">
-      <div className="mx-auto flex h-[76px] max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-10 2xl:px-12">
+      <div className="relative mx-auto flex h-[76px] max-w-[1600px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-10 2xl:px-12">
         <button
           type="button"
           onClick={() => navigate("/")}
@@ -97,13 +102,21 @@ function MarketplaceHeader() {
           </span>
         </button>
 
+        {centerContent && (
+          <div className="absolute left-1/2 hidden max-w-[46vw] -translate-x-1/2 items-center justify-center md:flex">
+            {centerContent}
+          </div>
+        )}
+
         <div className="flex items-center gap-2 sm:gap-3">
           <button
             type="button"
             onClick={handleHosting}
-            className="rounded-full px-3 py-2.5 text-sm font-bold text-slate-800 transition hover:bg-slate-100 sm:px-4"
+            className={`rounded-full px-3 py-2.5 text-sm font-bold text-slate-800 transition hover:bg-slate-100 sm:px-4 ${
+              hostingMode ? "hidden xl:block" : ""
+            }`}
           >
-            {user?.isHost ? "Switch to hosting" : "Become a host"}
+            {hostingMode ? "Switch to traveling" : user?.isHost ? "Switch to hosting" : "Become a host"}
           </button>
 
           <button

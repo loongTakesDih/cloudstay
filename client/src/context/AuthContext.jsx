@@ -142,6 +142,17 @@ export function AuthProvider({ children }) {
     loadCurrentUser();
   }, []);
 
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setAuthToken(null);
+      setToken(null);
+      setUser(null);
+    };
+
+    window.addEventListener("cloudstay:unauthorized", handleUnauthorized);
+    return () => window.removeEventListener("cloudstay:unauthorized", handleUnauthorized);
+  }, []);
+
   return (
     <AuthContext.Provider
       value={{

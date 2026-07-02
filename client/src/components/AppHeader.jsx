@@ -1,7 +1,7 @@
 import MarketplaceHeader from "./MarketplaceHeader";
 
-function AppHeader() {
-  return <MarketplaceHeader />;
+function AppHeader(props) {
+  return <MarketplaceHeader {...props} />;
 }
 
 export default AppHeader;

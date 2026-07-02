@@ -23,6 +23,14 @@ public class PropertiesController : ControllerBase
         public async Task<ActionResult<IEnumerable<PropertyResponseDto>>> GetPublicProperties()
         {
             var properties = await _context.Properties
+                .Where(property =>
+                    property.IsListed &&
+                    property.IsAvailable &&
+                    (property.AvailableTo == null ||
+                     property.AvailableTo > DateTime.UtcNow.Date) &&
+                    !_context.Bookings.Any(booking =>
+                        booking.PropertyId == property.Id &&
+                        booking.Status == "Accepted"))
                 .OrderByDescending(property => property.CreatedAt)
                 .ToListAsync();
 
@@ -280,6 +288,33 @@ public class PropertiesController : ControllerBase
             return Forbid();
         }
 
+        if (isListed)
+        {
+            if (!property.IsAvailable)
+            {
+                return BadRequest(new
+                {
+                    message = "Mark this listing as available before publishing it."
+                });
+            }
+
+            if (property.AvailableFrom == null || property.AvailableTo == null)
+            {
+                return BadRequest(new
+                {
+                    message = "Set an availability date range before publishing this listing."
+                });
+            }
+
+            if (property.AvailableTo.Value.Date <= DateTime.UtcNow.Date)
+            {
+                return BadRequest(new
+                {
+                    message = "This listing's availability has ended. Edit the availability dates before publishing it."
+                });
+            }
+        }
+
         property.IsListed = isListed;
         property.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
@@ -310,6 +345,21 @@ public class PropertiesController : ControllerBase
             string.IsNullOrWhiteSpace(request.Location))
         {
             return "Address or location is required.";
+        }
+
+        var hasAnyStructuredLocation =
+            !string.IsNullOrWhiteSpace(request.AddressLine) ||
+            !string.IsNullOrWhiteSpace(request.City) ||
+            !string.IsNullOrWhiteSpace(request.State) ||
+            !string.IsNullOrWhiteSpace(request.Country);
+
+        if (hasAnyStructuredLocation &&
+            (string.IsNullOrWhiteSpace(request.AddressLine) ||
+             string.IsNullOrWhiteSpace(request.City) ||
+             string.IsNullOrWhiteSpace(request.State) ||
+             string.IsNullOrWhiteSpace(request.Country)))
+        {
+            return "Street address, city, state, and country are required.";
         }
 
         if (request.GuestCount < 1)
@@ -386,6 +436,11 @@ public class PropertiesController : ControllerBase
         property.PropertyCategory = EmptyToNull(request.PropertyCategory ?? string.Empty);
         property.PlaceType = EmptyToNull(request.PlaceType ?? string.Empty);
         property.Address = string.IsNullOrWhiteSpace(address) ? property.Location : address;
+        property.AddressLine = EmptyToNull(request.AddressLine ?? string.Empty);
+        property.City = EmptyToNull(request.City ?? string.Empty);
+        property.State = EmptyToNull(request.State ?? string.Empty);
+        property.PostalCode = EmptyToNull(request.PostalCode ?? string.Empty);
+        property.Country = EmptyToNull(request.Country ?? string.Empty);
         
         // 3. Integer Fixes: Added ?? 0 to safely convert 'int?' to 'int'
         property.GuestCount = request.GuestCount ?? 0;
@@ -485,6 +540,11 @@ internal static PropertyResponseDto MapProperty(
             PropertyCategory = property.PropertyCategory,
             PlaceType = property.PlaceType,
             Address = property.Address,
+            AddressLine = property.AddressLine,
+            City = property.City,
+            State = property.State,
+            PostalCode = property.PostalCode,
+            Country = property.Country,
             GuestCount = property.GuestCount,
             BedroomCount = property.BedroomCount,
             BedCount = property.BedCount,
