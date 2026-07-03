@@ -20,3 +20,16 @@ cloudstay/
 └── docs/
 
 bleh
+
+
+To use S3, first must add these credentials in cd server:
+
+{
+$env:AWS_ACCESS_KEY_ID="..."
+$env:AWS_SECRET_ACCESS_KEY="..."
+$env:AWS_SESSION_TOKEN="..."
+}
+
+These credentials are inserted each time the server is started in powershell, the credentials are obtained in AWS Learner Lab, in AWS Details.
+
+dotnet run

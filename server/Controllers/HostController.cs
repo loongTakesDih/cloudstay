@@ -4,6 +4,7 @@ using server.Data;
 using server.DTOs.Auth;
 using server.DTOs.Host;
 using server.DTOs.Properties;
+using server.Models;
 using server.Services;
 using System.Security.Claims;
 
@@ -69,6 +70,20 @@ public class HostController : ControllerBase
 
         _context.Properties.Add(property);
         await _context.SaveChangesAsync();
+
+        var imageUrls = PropertiesController.NormalizeImageUrls(request);
+
+        if (imageUrls.Count > 0)
+        {
+            _context.PropertyImages.AddRange(imageUrls.Select(imageUrl => new PropertyImage
+            {
+                ImageUrl = imageUrl,
+                PropertyId = property.Id
+            }));
+
+            await _context.SaveChangesAsync();
+        }
+
         await transaction.CommitAsync();
 
         return Ok(new HostOnboardingResponseDto
@@ -82,7 +97,9 @@ public class HostController : ControllerBase
                 Role = user.Role,
                 IsHost = user.IsHost
             },
-            Listing = PropertiesController.MapProperty(property)
+            Listing = PropertiesController.MapProperty(
+                property,
+                imageUrls)
         });
     }
 }
