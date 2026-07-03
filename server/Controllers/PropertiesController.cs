@@ -519,6 +519,8 @@ internal static PropertyResponseDto MapProperty(
         int? currentUserId = null)
     {
         imageUrls ??= [];
+        var createdAt = property.CreatedAt ?? DateTime.UtcNow;
+        var updatedAt = property.UpdatedAt ?? createdAt;
 
         return new PropertyResponseDto
         {
@@ -549,8 +551,8 @@ internal static PropertyResponseDto MapProperty(
             AvailableTo = property.AvailableTo,
             IsListed = property.IsListed,
             IsAvailable = property.IsAvailable,
-            CreatedAt = createdAt, // Use the calculated value
-            UpdatedAt = updatedAt, // Use the calculated value
+            CreatedAt = createdAt,
+            UpdatedAt = updatedAt,
             IsOwner = currentUserId != null && property.HostId == currentUserId.Value,
             Host = host
         };

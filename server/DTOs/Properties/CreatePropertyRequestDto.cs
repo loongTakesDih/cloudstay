@@ -16,6 +16,8 @@ public class CreatePropertyRequestDto
 
     public string PropertyCategory { get; set; } = string.Empty;
 
+    public string? PlaceType { get; set; }
+
     public string? Address { get; set; }
 
     public string? AddressLine { get; set; }

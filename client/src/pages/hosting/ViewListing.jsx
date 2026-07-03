@@ -221,6 +221,25 @@ function ViewListing() {
     }));
   };
 
+  const updateEditLocation = (field, value) => {
+    setEditForm((currentForm) => {
+      const next = { ...currentForm, [field]: value };
+      const address = [
+        next.addressLine,
+        next.city,
+        next.postalCode,
+        next.state,
+        next.country,
+      ].filter(Boolean).join(", ");
+
+      return {
+        ...next,
+        address,
+        location: [next.city, next.state, next.country].filter(Boolean).join(", "),
+      };
+    });
+  };
+
   const handleEditPhotoUpload = async (event) => {
     const files = Array.from(event.target.files || []);
 

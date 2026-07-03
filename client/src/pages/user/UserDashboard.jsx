@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppHeader from "../../components/AppHeader";
 import NotificationBell from "../../components/NotificationBell.jsx";
@@ -12,26 +12,16 @@ function UserDashboard() {
   const { logout, user } = useAuth();
   const [trips, setTrips] = useState([]);
   const [loadingTrips, setLoadingTrips] = useState(false);
-  const [savedPlaces, setSavedPlaces] = useState([]);
+  const savedPlaces = useMemo(() => {
+    if (!user) return [];
 
-  const handleBecomeHost = async () => {
     try {
-      // Call the API to become a host
-      const response = await fetch("http://localhost:5028/api/auth/become-host", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${localStorage.getItem("cloudstay_token")}`
-        }
-      });
-      
-      if (response.ok) {
-        // Refresh the page or update user context
-        window.location.reload();
-      }
+      return readSavedListings(user.userId);
     } catch (error) {
-      console.error("Failed to become a host", error);
+      console.error("Failed to load saved places", error);
+      return [];
     }
-  };
+  }, [user]);
 
   useEffect(() => {
     const fetchTrips = async () => {
@@ -49,20 +39,6 @@ function UserDashboard() {
 
     if (user) {
       fetchTrips();
-    }
-  }, [user]);
-
-  useEffect(() => {
-    if (!user) {
-      setSavedPlaces([]);
-      return;
-    }
-
-    try {
-      setSavedPlaces(readSavedListings(user.userId));
-    } catch (error) {
-      console.error("Failed to load saved places", error);
-      setSavedPlaces([]);
     }
   }, [user]);
 
