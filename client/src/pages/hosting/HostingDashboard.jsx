@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   deleteListing,
@@ -9,7 +9,6 @@ import {
   updateListing,
 } from "../../api/api.js";
 import AppHeader from "../../components/AppHeader";
-import HostNotificationBell from "../../components/HostNotificationBell.jsx";
 import { MapPicker } from "../../components/PropertyMap";
 import {
   formatBookingDate,
@@ -110,20 +109,22 @@ function BookingCard({ booking, onOpen }) {
   );
 }
 
-function BookingsTab({ bookings, loading, onOpen }) {
-  const [view, setView] = useState("today");
+function BookingsTab({ bookings, loading, onOpen, requestedView }) {
+  const [view, setView] = useState(
+    ["today", "upcoming", "history"].includes(requestedView) ? requestedView : "today",
+  );
   const today = localToday();
   const visibleBookings = useMemo(() => {
     if (view === "history") {
       return bookings.filter((booking) => {
         const status = normalizeBookingStatus(booking.status);
-        return status === "declined" || status === "completed" || toDateValue(booking.checkOut) < today;
+        return status === "declined" || status === "completed" || status === "checkedout" || toDateValue(booking.checkOut) < today;
       });
     }
 
     return bookings.filter((booking) => {
       const status = normalizeBookingStatus(booking.status);
-      if (status === "declined" || status === "completed") return false;
+      if (status === "declined" || status === "completed" || status === "checkedout") return false;
       const checkIn = toDateValue(booking.checkIn);
       return view === "today" ? checkIn === today : checkIn > today;
     });
@@ -515,7 +516,7 @@ function HostingDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  const loadHostingData = useCallback(() => {
     Promise.allSettled([getBookingRequests(), getMyListings()])
       .then(([bookingResult, listingResult]) => {
         if (bookingResult.status === "fulfilled") {
@@ -532,6 +533,20 @@ function HostingDashboard() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadHostingData();
+  }, [loadHostingData]);
+
+  useEffect(() => {
+    const refresh = (event) => {
+      if (["booking", "property"].includes(event.detail?.entity)) {
+        loadHostingData();
+      }
+    };
+    window.addEventListener("cloudstay:data-changed", refresh);
+    return () => window.removeEventListener("cloudstay:data-changed", refresh);
+  }, [loadHostingData]);
 
   const updateLocalListing = (updated, deletedId) => {
     if (deletedId) {
@@ -564,11 +579,17 @@ function HostingDashboard() {
       <AppHeader
         centerContent={hostingNavigation}
         hostingMode
-        actions={<HostNotificationBell />}
       />
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {error && <p className="mb-6 rounded-2xl bg-rose-50 p-4 text-sm font-semibold text-rose-700">{error}</p>}
-        {activeTab === "bookings" && <BookingsTab bookings={bookings} loading={loading} onOpen={(booking) => navigate(`/hosting/requests/${booking.id}`)} />}
+        {activeTab === "bookings" && (
+          <BookingsTab
+            bookings={bookings}
+            loading={loading}
+            onOpen={(booking) => navigate(`/hosting/requests/${booking.id}`)}
+            requestedView={searchParams.get("view")}
+          />
+        )}
         {activeTab === "listings" && (
           <ListingsTab
             listings={listings}

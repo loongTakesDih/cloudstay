@@ -1,14 +1,180 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppHeader from "../../components/AppHeader";
+import {
+  getBookingRequests,
+  getConversations,
+  getMyTrips,
+} from "../../api/api.js";
 import { useAuth } from "../../context/useAuth";
-import { markNotificationsRead, readNotifications } from "../../utils/localState.js";
+import {
+  markNotificationsRead,
+  readNotifications,
+  writeNotifications,
+} from "../../utils/localState.js";
+
+const dateKey = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+};
+
+const notificationKey = (notification) =>
+  notification.type === "message"
+    ? `message:${notification.messageId || notification.conversationId}`
+    : `${notification.type}:${notification.audience}:${notification.bookingId}:${notification.status}`;
 
 function NotificationsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [notifications, setNotifications] = useState(() => readNotifications(user?.userId));
+  const [liveRevision, setLiveRevision] = useState(0);
   const unread = notifications.filter((notification) => !notification.read);
+
+  useEffect(() => {
+    const refresh = () => setNotifications(readNotifications(user?.userId));
+    window.addEventListener("cloudstay:notifications-changed", refresh);
+    return () => window.removeEventListener("cloudstay:notifications-changed", refresh);
+  }, [user?.userId]);
+
+  useEffect(() => {
+    const refresh = () => setLiveRevision((revision) => revision + 1);
+    window.addEventListener("cloudstay:data-changed", refresh);
+    return () => window.removeEventListener("cloudstay:data-changed", refresh);
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadNotifications = async () => {
+      try {
+        const [tripResult, conversationResult, hostBookingResult] =
+          await Promise.allSettled([
+            getMyTrips(),
+            getConversations(),
+            user?.isHost ? getBookingRequests() : Promise.resolve([]),
+          ]);
+
+        if (!active) return;
+        const trips = tripResult.status === "fulfilled" ? tripResult.value : [];
+        const conversations =
+          conversationResult.status === "fulfilled" ? conversationResult.value : [];
+        const hostBookings =
+          hostBookingResult.status === "fulfilled" ? hostBookingResult.value : [];
+        const today = dateKey(new Date());
+
+        const generated = [
+          ...trips.map((booking) => ({
+            id: `guest-booking-${booking.id}-${booking.status}`,
+            type: "booking-status",
+            audience: "guest",
+            direction: "outgoing",
+            title:
+              booking.status === "Accepted"
+                ? "Booking accepted"
+                : booking.status === "Declined"
+                  ? "Booking declined"
+                  : booking.status === "CheckedOut" || booking.status === "Completed"
+                    ? "Stay completed"
+                    : "Booking request sent",
+            message: `${booking.property?.title || "Your CloudStay booking"} is ${String(booking.status || "pending").toLowerCase()}.`,
+            bookingId: booking.id,
+            propertyId: booking.propertyId,
+            propertyTitle: booking.property?.title,
+            status: booking.status || "Pending",
+            targetPath: `/trips/${booking.id}`,
+            createdAt: booking.createdAt,
+          })),
+          ...hostBookings
+            .filter((booking) =>
+              ["pending", "checkedout"].includes(
+                String(booking.status || "").toLowerCase(),
+              ),
+            )
+            .map((booking) => {
+              const checkedOut =
+                String(booking.status || "").toLowerCase() === "checkedout";
+              const view =
+                dateKey(booking.checkIn) === today ? "today" : "upcoming";
+              return {
+                id: `host-booking-${booking.id}-${booking.status}`,
+                type: checkedOut ? "booking-status" : "booking-request",
+                audience: "host",
+                direction: "incoming",
+                title: checkedOut ? "Guest checked out" : "New booking request",
+                message: checkedOut
+                  ? `${booking.property?.title || "Your property"} is ready for inspection and preparation.`
+                  : `${booking.guest?.username || "A guest"} requested ${booking.property?.title || "your property"}.`,
+                bookingId: booking.id,
+                propertyId: booking.propertyId,
+                propertyTitle: booking.property?.title,
+                status: booking.status,
+                targetPath: checkedOut
+                  ? "/hosting/dashboard?tab=listings"
+                  : `/hosting/dashboard?tab=bookings&view=${view}`,
+                createdAt: booking.createdAt,
+              };
+            }),
+          ...conversations
+            .filter(
+              (conversation) =>
+                conversation.unreadCount > 0 && conversation.lastMessage,
+            )
+            .map((conversation) => ({
+              id: `message-${conversation.lastMessage.id}`,
+              type: "message",
+              direction: "incoming",
+              title: `New message from ${conversation.otherUser?.username || "CloudStay user"}`,
+              message: conversation.lastMessage.body,
+              conversationId: conversation.id,
+              messageId: conversation.lastMessage.id,
+              propertyId: conversation.property?.id,
+              propertyTitle: conversation.property?.title,
+              targetPath: `/messages/${conversation.id}`,
+              createdAt: conversation.lastMessage.createdAt,
+            })),
+        ];
+
+        const existing = readNotifications(user?.userId);
+        const existingByKey = new Map(
+          existing.map((notification) => [
+            notificationKey(notification),
+            notification,
+          ]),
+        );
+        const generatedKeys = new Set(generated.map(notificationKey));
+        const merged = [
+          ...generated.map((notification) => {
+            const previous = existingByKey.get(notificationKey(notification));
+            return {
+              ...notification,
+              id: previous?.id || notification.id,
+              read: previous?.read ?? false,
+            };
+          }),
+          ...existing.filter(
+            (notification) => !generatedKeys.has(notificationKey(notification)),
+          ),
+        ].sort(
+          (a, b) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime(),
+        );
+
+        writeNotifications(user?.userId, merged);
+        setNotifications(merged);
+      } catch {
+        // Keep the locally cached notification list if a request is unavailable.
+      }
+    };
+
+    loadNotifications();
+    return () => {
+      active = false;
+    };
+  }, [liveRevision, user?.isHost, user?.userId]);
 
   const markAllRead = () => {
     setNotifications(markNotificationsRead(user.userId, unread.map((notification) => notification.id)));

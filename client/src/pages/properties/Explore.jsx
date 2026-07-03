@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getPublicListings } from "../../api/api.js";
 import DateRangePicker from "../../components/DateRangePicker.jsx";
@@ -72,19 +72,40 @@ function ExploreStays() {
     endDate: "",
     guests: { ...emptyGuestSelection },
   });
+  const filtersRef = useRef(filters);
 
   useEffect(() => {
-    getPublicListings()
-      .then((data) => {
-        setListings(data);
-        setFilteredListings(data);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch listings", err);
-        setError("Could not load stays. Please try again later.");
-      })
-      .finally(() => setLoading(false));
+    filtersRef.current = filters;
+  }, [filters]);
+
+  const loadListings = useCallback(async () => {
+    try {
+      const data = await getPublicListings();
+      setListings(data);
+      setFilteredListings(applyFilters(data, filtersRef.current));
+      setError("");
+    } catch (err) {
+      console.error("Failed to fetch listings", err);
+      setError("Could not load stays. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    const initialLoadId = window.setTimeout(loadListings, 0);
+    return () => window.clearTimeout(initialLoadId);
+  }, [loadListings]);
+
+  useEffect(() => {
+    const refresh = (event) => {
+      if (["booking", "property"].includes(event.detail?.entity)) {
+        loadListings();
+      }
+    };
+    window.addEventListener("cloudstay:data-changed", refresh);
+    return () => window.removeEventListener("cloudstay:data-changed", refresh);
+  }, [loadListings]);
 
   const savedIds = new Set(
     readSavedListings(user?.userId).map((listing) => listing.id),

@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL =
+export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:5028/api";
 
 const api = axios.create({
@@ -152,6 +152,11 @@ export const updateBookingStatus = async (id, status) => {
   return response.data;
 };
 
+export const checkoutBooking = async (id) => {
+  const response = await api.post(`/bookings/${id}/checkout`);
+  return response.data;
+};
+
 export const getMyBookings = async () => {
   const response = await api.get("/bookings/my-trips");
   return response.data;
@@ -172,6 +177,11 @@ export const getReviewEligibility = async (bookingId) => {
 
 export const createReview = async (payload) => {
   const response = await api.post("/reviews", payload);
+  return response.data;
+};
+
+export const getMyReviews = async () => {
+  const response = await api.get("/reviews/mine");
   return response.data;
 };
 

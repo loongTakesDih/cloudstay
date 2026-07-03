@@ -1,8 +1,13 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getMyTrips, getOrCreateConversation } from "../../api/api.js";
+import {
+  checkoutBooking,
+  getMyTrips,
+  getOrCreateConversation,
+} from "../../api/api.js";
 import AppHeader from "../../components/AppHeader";
 import ReviewForm from "../../components/ReviewForm";
+import { addNotification } from "../../utils/localState.js";
 
 const formatDate = (value) => {
   if (!value) return "Not set";
@@ -24,6 +29,8 @@ const getStatusClasses = (status) => {
       return "bg-rose-50 text-rose-700 ring-1 ring-rose-200";
     case "Completed":
       return "bg-sky-50 text-sky-700 ring-1 ring-sky-200";
+    case "CheckedOut":
+      return "bg-violet-50 text-violet-700 ring-1 ring-violet-200";
     default:
       return "bg-slate-100 text-slate-700 ring-1 ring-slate-200";
   }
@@ -35,24 +42,41 @@ function BookingDetails() {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [openingChat, setOpeningChat] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
+  const [checkoutError, setCheckoutError] = useState("");
   const [chatError, setChatError] = useState("");
 
+  const fetchBooking = useCallback(async () => {
+    try {
+      const trips = await getMyTrips();
+      const found = trips.find((t) => t.id === parseInt(bookingId, 10));
+      setBooking(found ?? null);
+    } catch (error) {
+      console.error("Failed to load booking details", error);
+      setBooking(null);
+    } finally {
+      setLoading(false);
+    }
+  }, [bookingId]);
+
   useEffect(() => {
-    const fetchBooking = async () => {
-      try {
-        const trips = await getMyTrips();
-        const found = trips.find((t) => t.id === parseInt(bookingId, 10));
-        setBooking(found ?? null);
-      } catch (error) {
-        console.error("Failed to load booking details", error);
-        setBooking(null);
-      } finally {
-        setLoading(false);
+    const initialLoadId = window.setTimeout(fetchBooking, 0);
+    return () => window.clearTimeout(initialLoadId);
+  }, [fetchBooking]);
+
+  useEffect(() => {
+    const refresh = (event) => {
+      if (
+        event.detail?.entity === "booking" &&
+        (!event.detail?.bookingId ||
+          Number(event.detail.bookingId) === Number(bookingId))
+      ) {
+        fetchBooking();
       }
     };
-
-    fetchBooking();
-  }, [bookingId]);
+    window.addEventListener("cloudstay:data-changed", refresh);
+    return () => window.removeEventListener("cloudstay:data-changed", refresh);
+  }, [bookingId, fetchBooking]);
 
   const handleMessageHost = async () => {
     setOpeningChat(true);
@@ -66,6 +90,39 @@ function BookingDetails() {
         error?.response?.data?.message || "Could not open the conversation.",
       );
       setOpeningChat(false);
+    }
+  };
+
+  const handleCheckout = async () => {
+    if (!window.confirm("Check out now? The host will need to inspect and relist the property before it becomes available again.")) {
+      return;
+    }
+
+    setCheckingOut(true);
+    setCheckoutError("");
+    try {
+      const result = await checkoutBooking(booking.id);
+      setBooking((current) => ({ ...current, status: result.status }));
+
+      const hostId = booking.property?.hostId;
+      if (hostId) {
+        addNotification(hostId, {
+          type: "booking-status",
+          audience: "host",
+          direction: "incoming",
+          title: "Guest checked out",
+          message: `${booking.property?.title || "Your property"} is ready for inspection and preparation.`,
+          bookingId: booking.id,
+          propertyId: booking.propertyId,
+          propertyTitle: booking.property?.title || "CloudStay property",
+          status: "CheckedOut",
+          targetPath: "/hosting/dashboard?tab=listings",
+        });
+      }
+    } catch (error) {
+      setCheckoutError(error?.response?.data?.message || "Could not check out right now.");
+    } finally {
+      setCheckingOut(false);
     }
   };
 
@@ -189,22 +246,39 @@ function BookingDetails() {
           </div>
 
           <div className="mt-8 border-t border-slate-200 pt-6">
-            {chatError && (
+            {(chatError || checkoutError) && (
               <p role="alert" className="mb-3 text-sm font-semibold text-rose-600">
-                {chatError}
+                {chatError || checkoutError}
               </p>
             )}
-            <button
-              type="button"
-              onClick={handleMessageHost}
-              disabled={openingChat}
-              className="rounded-xl bg-rose-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:bg-slate-300"
-            >
-              {openingChat ? "Opening chat..." : "Message host"}
-            </button>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleMessageHost}
+                disabled={openingChat}
+                className="rounded-xl bg-rose-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                {openingChat ? "Opening chat..." : "Message host"}
+              </button>
+              {booking.status === "Accepted" && (
+                <button
+                  type="button"
+                  onClick={handleCheckout}
+                  disabled={checkingOut}
+                  className="rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  {checkingOut ? "Checking out..." : "Check out now"}
+                </button>
+              )}
+            </div>
+            {booking.status === "CheckedOut" && (
+              <p className="mt-4 rounded-2xl bg-violet-50 p-4 text-sm font-semibold text-violet-800">
+                You are checked out. This listing will stay offline until the host has inspected, prepared, and relisted it.
+              </p>
+            )}
           </div>
 
-          {booking.status === "Accepted" && (
+          {["Accepted", "CheckedOut", "Completed"].includes(booking.status) && (
             <ReviewForm bookingId={booking.id} />
           )}
         </section>

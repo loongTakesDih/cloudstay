@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppHeader from "../../components/AppHeader";
-import NotificationBell from "../../components/NotificationBell.jsx";
 import { getMyTrips } from "../../api/api.js";
 import { useAuth } from "../../context/useAuth";
 import { readSavedListings } from "../../utils/localState.js";
@@ -64,7 +63,6 @@ function UserDashboard() {
             <span className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600">
               {user?.isHost ? "Host enabled" : "Guest account"}
             </span>
-            <NotificationBell userId={user?.userId} />
             <button
               onClick={logout}
               className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"

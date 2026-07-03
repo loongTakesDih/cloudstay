@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using server.Data;
 using server.DTOs.Properties;
 using server.Models;
+using server.Services;
 using System.Security.Claims;
 
 namespace server.Controllers;
@@ -13,10 +14,12 @@ namespace server.Controllers;
 public class PropertiesController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly RealtimeNotifier _realtime;
 
-    public PropertiesController(AppDbContext context)
+    public PropertiesController(AppDbContext context, RealtimeNotifier realtime)
     {
         _context = context;
+        _realtime = realtime;
     }
     
     [HttpGet]
@@ -153,6 +156,12 @@ public class PropertiesController : ControllerBase
 
         AddPropertyImages(property.Id, request);
         await _context.SaveChangesAsync();
+        await _realtime.NotifyAllAsync(new
+        {
+            Entity = "property",
+            Action = "created",
+            PropertyId = property.Id
+        });
 
         return Created($"/api/properties/{property.Id}", await MapPropertyAsync(property, userId.Value));
     }
@@ -224,6 +233,12 @@ public class PropertiesController : ControllerBase
         ApplyPropertyChanges(property, request);
         ReplacePropertyImages(property.Id, request);
         await _context.SaveChangesAsync();
+        await _realtime.NotifyAllAsync(new
+        {
+            Entity = "property",
+            Action = "updated",
+            PropertyId = property.Id
+        });
 
         return Ok(await MapPropertyAsync(property, userId.Value));
     }
@@ -289,6 +304,12 @@ public class PropertiesController : ControllerBase
         _context.PropertyImages.RemoveRange(images);
         _context.Properties.Remove(property);
         await _context.SaveChangesAsync();
+        await _realtime.NotifyAllAsync(new
+        {
+            Entity = "property",
+            Action = "deleted",
+            PropertyId = property.Id
+        });
 
         return NoContent();
     }
@@ -326,10 +347,25 @@ public class PropertiesController : ControllerBase
         {
             if (!property.IsAvailable)
             {
-                return BadRequest(new
+                var checkedOutBooking = await _context.Bookings
+                    .Where(booking =>
+                        booking.PropertyId == property.Id &&
+                        booking.Status == "CheckedOut")
+                    .OrderByDescending(booking => booking.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                if (checkedOutBooking == null)
                 {
-                    message = "Mark this listing as available before publishing it."
-                });
+                    return BadRequest(new
+                    {
+                        message = "Mark this listing as available before publishing it."
+                    });
+                }
+
+                // Publishing after checkout is the host's confirmation that inspection
+                // and preparation are complete.
+                checkedOutBooking.Status = "Completed";
+                property.IsAvailable = true;
             }
 
             if (property.AvailableFrom == null || property.AvailableTo == null)
@@ -352,6 +388,12 @@ public class PropertiesController : ControllerBase
         property.IsListed = isListed;
         property.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+        await _realtime.NotifyAllAsync(new
+        {
+            Entity = "property",
+            Action = isListed ? "published" : "unpublished",
+            PropertyId = property.Id
+        });
 
         return Ok(await MapPropertyAsync(property, userId.Value));
     }

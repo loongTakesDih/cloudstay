@@ -95,6 +95,24 @@ function MessagesPage() {
   }, [activeId, loadMessages]);
 
   useEffect(() => {
+    const refresh = (event) => {
+      if (!["message", "conversation", "booking"].includes(event.detail?.entity)) {
+        return;
+      }
+      loadConversations();
+      if (
+        activeId &&
+        (!event.detail?.conversationId ||
+          Number(event.detail.conversationId) === activeId)
+      ) {
+        loadMessages();
+      }
+    };
+    window.addEventListener("cloudstay:data-changed", refresh);
+    return () => window.removeEventListener("cloudstay:data-changed", refresh);
+  }, [activeId, loadConversations, loadMessages]);
+
+  useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [activeId, messages.length]);
 

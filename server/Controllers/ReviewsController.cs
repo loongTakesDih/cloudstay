@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using server.Data;
 using server.DTOs.Reviews;
 using server.Models;
+using server.Services;
 
 namespace server.Controllers;
 
@@ -14,13 +15,16 @@ public class ReviewsController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly IWebHostEnvironment _environment;
+    private readonly RealtimeNotifier _realtime;
 
     public ReviewsController(
         AppDbContext context,
-        IWebHostEnvironment environment)
+        IWebHostEnvironment environment,
+        RealtimeNotifier realtime)
     {
         _context = context;
         _environment = environment;
+        _realtime = realtime;
     }
 
     [HttpGet("property/{propertyId:int}")]
@@ -112,6 +116,35 @@ public class ReviewsController : ControllerBase
     }
 
     [Authorize]
+    [HttpGet("mine")]
+    public async Task<ActionResult> GetMyReviews()
+    {
+        if (!TryGetUserId(out var userId))
+        {
+            return Unauthorized(new { message = "Invalid user session." });
+        }
+
+        var reviews = await _context.Reviews
+            .Where(review => review.GuestId == userId)
+            .OrderByDescending(review => review.CreatedAt)
+            .Select(review => new
+            {
+                review.Id,
+                review.BookingId,
+                review.PropertyId,
+                review.OverallRating,
+                review.Comment,
+                review.CreatedAt,
+                PropertyTitle = review.Property != null
+                    ? review.Property.Title
+                    : "CloudStay property"
+            })
+            .ToListAsync();
+
+        return Ok(reviews);
+    }
+
+    [Authorize]
     [HttpPost]
     public async Task<ActionResult> CreateReview(CreateReviewDto request)
     {
@@ -157,6 +190,14 @@ public class ReviewsController : ControllerBase
 
         _context.Reviews.Add(review);
         await _context.SaveChangesAsync();
+        await _realtime.NotifyAllAsync(new
+        {
+            Entity = "review",
+            Action = "created",
+            ReviewId = review.Id,
+            review.PropertyId,
+            review.BookingId
+        });
 
         return Ok(new { review.Id, message = "Your review has been published." });
     }
@@ -172,16 +213,23 @@ public class ReviewsController : ControllerBase
             return new(false, "You have already reviewed this stay.", null);
         }
 
-        if (!string.Equals(status, "Accepted", StringComparison.OrdinalIgnoreCase))
+        var hasCompletedStay =
+            string.Equals(status, "Accepted", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(status, "CheckedOut", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase);
+        if (!hasCompletedStay)
         {
-            return new(false, "Only accepted bookings can be reviewed.", null);
+            return new(false, "Only completed stays can be reviewed.", null);
         }
 
         var today = DateTime.UtcNow.Date;
         var checkOutDate = checkOut.Date;
         var deadline = checkOutDate.AddDays(14);
 
-        if (today < checkOutDate)
+        var checkedOutManually =
+            string.Equals(status, "CheckedOut", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase);
+        if (today < checkOutDate && !checkedOutManually)
         {
             if (allowBeforeCheckout)
             {

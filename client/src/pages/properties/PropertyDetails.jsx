@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   getProperty,
@@ -287,6 +287,7 @@ function NotFoundState({ onBack }) {
 
 // --- REVIEW BOOKING MODAL ---
 function ReviewBookingModal({ listing, checkIn, checkOut, guests, onClose, onSuccess }) {
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const start = new Date(checkIn);
@@ -306,6 +307,12 @@ function ReviewBookingModal({ listing, checkIn, checkOut, guests, onClose, onSuc
         infants: guests.infants,
       });
       if (listing.hostId && result.bookingId) {
+        const today = new Date();
+        const requestedCheckIn = new Date(`${checkIn}T00:00:00`);
+        const isToday =
+          requestedCheckIn.getFullYear() === today.getFullYear() &&
+          requestedCheckIn.getMonth() === today.getMonth() &&
+          requestedCheckIn.getDate() === today.getDate();
         addNotification(listing.hostId, {
           type: "booking-request",
           audience: "host",
@@ -316,7 +323,21 @@ function ReviewBookingModal({ listing, checkIn, checkOut, guests, onClose, onSuc
           propertyId: listing.id,
           propertyTitle: listing.title,
           status: "Pending",
-          targetPath: `/hosting/requests/${result.bookingId}`,
+          targetPath: `/hosting/dashboard?tab=bookings&view=${isToday ? "today" : "upcoming"}`,
+        });
+      }
+      if (user?.userId && result.bookingId) {
+        addNotification(user.userId, {
+          type: "booking-request",
+          audience: "guest",
+          direction: "outgoing",
+          title: "Booking request sent",
+          message: `Your request for ${listing.title} from ${checkIn} to ${checkOut} was sent to the host.`,
+          bookingId: result.bookingId,
+          propertyId: listing.id,
+          propertyTitle: listing.title,
+          status: "Pending",
+          targetPath: `/trips/${result.bookingId}`,
         });
       }
       onSuccess();
@@ -554,7 +575,7 @@ function PropertyBookingCard({ listing, user }) {
 function PropertyDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -562,28 +583,42 @@ function PropertyDetails() {
   const [chatError, setChatError] = useState("");
   const [, setSavedRevision] = useState(0);
 
-  useEffect(() => {
-    let isActive = true;
+  const loadListing = useCallback((isActive = () => true) =>
     getProperty(id)
       .then((data) => {
-        if (isActive) {
+        if (isActive()) {
           setListing(data);
           setError("");
         }
       })
       .catch((err) => {
-        if (isActive) {
+        if (isActive()) {
           const status = err.response?.status;
           setError(status === 404 || status === 403 ? "unavailable" : "error");
         }
       })
       .finally(() => {
-        if (isActive) {
+        if (isActive()) {
           setLoading(false);
         }
-      });
-    return () => { isActive = false; };
-  }, [id]);
+      }), [id]);
+
+  useEffect(() => {
+    let active = true;
+    loadListing(() => active);
+    return () => { active = false; };
+  }, [loadListing]);
+
+  useEffect(() => {
+    const refresh = (event) => {
+      const affectsListing =
+        ["booking", "property"].includes(event.detail?.entity) &&
+        (!event.detail?.propertyId || Number(event.detail.propertyId) === Number(id));
+      if (affectsListing) loadListing();
+    };
+    window.addEventListener("cloudstay:data-changed", refresh);
+    return () => window.removeEventListener("cloudstay:data-changed", refresh);
+  }, [id, loadListing]);
 
   const isSaved =
     Boolean(listing && user) &&
@@ -651,43 +686,15 @@ function PropertyDetails() {
         title="CloudStay"
         subtitle={listing.isOwner ? "Host preview" : "Listing details"}
         actions={
-          <>
-            {!listing.isOwner && (
-              <button
-                type="button"
-                onClick={() => navigate("/explore")}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-slate-300"
-              >
-                Back to Explore
-              </button>
-            )}
-            {user && (
-              <button
-                type="button"
-                onClick={() => navigate(user.isHost ? "/hosting/listings" : "/dashboard")}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-slate-300"
-              >
-                {user.isHost ? "My listings" : "Back to Dashboard"}
-              </button>
-            )}
-            {user ? (
-              <button
-                type="button"
-                onClick={logout}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-slate-300"
-              >
-                Logout
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => navigate("/login")}
-                className="rounded-full bg-rose-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-rose-600"
-              >
-                Login
-              </button>
-            )}
-          </>
+          !listing.isOwner ? (
+            <button
+              type="button"
+              onClick={() => navigate("/explore")}
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-slate-300"
+            >
+              Back to Explore
+            </button>
+          ) : null
         }
       />
 

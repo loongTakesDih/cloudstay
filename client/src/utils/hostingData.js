@@ -18,6 +18,8 @@ export const getStatusClasses = (status) => {
       return "bg-rose-50 text-rose-700";
     case "completed":
       return "bg-sky-50 text-sky-700";
+    case "checkedout":
+      return "bg-violet-50 text-violet-700";
     default:
       return "bg-amber-50 text-amber-700";
   }

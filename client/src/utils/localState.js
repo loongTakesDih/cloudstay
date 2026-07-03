@@ -45,8 +45,12 @@ export const addNotification = (userId, notification) => {
   const duplicateIndex = existing.findIndex(
     (item) =>
       item.type === notification.type &&
-      item.bookingId === notification.bookingId &&
-      item.status === notification.status,
+      (
+        notification.messageId
+          ? item.messageId === notification.messageId
+          : item.bookingId === notification.bookingId &&
+            item.status === notification.status
+      ),
   );
 
   if (duplicateIndex >= 0) {
@@ -60,6 +64,7 @@ export const addNotification = (userId, notification) => {
     };
 
     writeNotifications(userId, [updated, ...remaining]);
+    window.dispatchEvent(new CustomEvent("cloudstay:notifications-changed"));
     return updated;
   }
 
@@ -72,4 +77,5 @@ export const addNotification = (userId, notification) => {
     },
     ...existing,
   ]);
+  window.dispatchEvent(new CustomEvent("cloudstay:notifications-changed"));
 };

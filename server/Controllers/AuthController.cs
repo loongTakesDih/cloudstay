@@ -79,7 +79,8 @@ public class AuthController : ControllerBase
             result.Username,
             result.Email,
             result.Role,
-            result.IsHost
+            result.IsHost,
+            result.CreatedAt
         });
     }
 

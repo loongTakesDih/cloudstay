@@ -98,7 +98,7 @@ const tabMeta = {
 function ViewListing() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { logout, user } = useAuth();
+  const { user } = useAuth();
   const [listings, setListings] = useState([]);
   const [activeTab, setActiveTab] = useState("unlisted");
   const [editingId, setEditingId] = useState(null);
@@ -340,12 +340,6 @@ function ViewListing() {
               className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
             >
               Hosting Dashboard
-            </button>
-            <button
-              onClick={logout}
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
-            >
-              Logout
             </button>
           </>
         }

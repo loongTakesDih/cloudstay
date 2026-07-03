@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using server.Data;
 using server.DTOs.Chat;
 using server.Models;
+using server.Services;
 
 namespace server.Controllers;
 
@@ -14,10 +15,12 @@ namespace server.Controllers;
 public class ChatController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly RealtimeNotifier _realtime;
 
-    public ChatController(AppDbContext context)
+    public ChatController(AppDbContext context, RealtimeNotifier realtime)
     {
         _context = context;
+        _realtime = realtime;
     }
 
     [HttpGet("conversations")]
@@ -194,6 +197,17 @@ public class ChatController : ControllerBase
             }
         }
 
+        await _realtime.NotifyUsersAsync(
+            [guestId, hostId],
+            new
+            {
+                Entity = "conversation",
+                Action = "opened",
+                ConversationId = conversation.Id,
+                conversation.BookingId,
+                conversation.PropertyId
+            });
+
         return Ok(new
         {
             conversation.Id,
@@ -232,6 +246,14 @@ public class ChatController : ControllerBase
             }
 
             await _context.SaveChangesAsync();
+            await _realtime.NotifyUsersAsync(
+                [conversation.GuestId, conversation.HostId],
+                new
+                {
+                    Entity = "message",
+                    Action = "read",
+                    ConversationId = conversation.Id
+                });
         }
 
         var messages = await _context.ChatMessages
@@ -283,6 +305,16 @@ public class ChatController : ControllerBase
         conversation.UpdatedAt = message.CreatedAt;
         _context.ChatMessages.Add(message);
         await _context.SaveChangesAsync();
+        await _realtime.NotifyUsersAsync(
+            [conversation.GuestId, conversation.HostId],
+            new
+            {
+                Entity = "message",
+                Action = "created",
+                ConversationId = conversation.Id,
+                MessageId = message.Id,
+                SenderId = userId
+            });
 
         var senderName = await _context.Users
             .Where(user => user.Id == userId)

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppHeader from "../../components/AppHeader";
 import { getMyTrips } from "../../api/api.js";
@@ -18,19 +18,30 @@ function MyTripsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    const loadTrips = async () => {
-      try {
-        setTrips(await getMyTrips());
-      } catch (requestError) {
-        console.error("Failed to load trips", requestError);
-        setError("We could not load your trips right now.");
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadTrips();
+  const loadTrips = useCallback(async () => {
+    try {
+      setTrips(await getMyTrips());
+      setError("");
+    } catch (requestError) {
+      console.error("Failed to load trips", requestError);
+      setError("We could not load your trips right now.");
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    const initialLoadId = window.setTimeout(loadTrips, 0);
+    return () => window.clearTimeout(initialLoadId);
+  }, [loadTrips]);
+
+  useEffect(() => {
+    const refresh = (event) => {
+      if (event.detail?.entity === "booking") loadTrips();
+    };
+    window.addEventListener("cloudstay:data-changed", refresh);
+    return () => window.removeEventListener("cloudstay:data-changed", refresh);
+  }, [loadTrips]);
 
   return (
     <div className="min-h-screen bg-[#fffaf7] text-slate-950">
