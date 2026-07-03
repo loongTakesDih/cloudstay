@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import AppHeader from "../../components/AppHeader";
 import NotificationBell from "../../components/NotificationBell.jsx";
@@ -12,7 +12,16 @@ function UserDashboard() {
   const { logout, user } = useAuth();
   const [trips, setTrips] = useState([]);
   const [loadingTrips, setLoadingTrips] = useState(false);
-  const [savedPlaces, setSavedPlaces] = useState([]);
+  const savedPlaces = useMemo(() => {
+    if (!user) return [];
+
+    try {
+      return readSavedListings(user.userId);
+    } catch (error) {
+      console.error("Failed to load saved places", error);
+      return [];
+    }
+  }, [user]);
 
   useEffect(() => {
     const fetchTrips = async () => {
@@ -31,24 +40,6 @@ function UserDashboard() {
     if (user) {
       fetchTrips();
     }
-  }, [user]);
-
-  useEffect(() => {
-    const loadId = window.setTimeout(() => {
-      if (!user) {
-        setSavedPlaces([]);
-        return;
-      }
-
-      try {
-        setSavedPlaces(readSavedListings(user.userId));
-      } catch (error) {
-        console.error("Failed to load saved places", error);
-        setSavedPlaces([]);
-      }
-    }, 0);
-
-    return () => window.clearTimeout(loadId);
   }, [user]);
 
   return (

@@ -1,3 +1,5 @@
+using Amazon;
+using Amazon.S3;
 using Microsoft.EntityFrameworkCore;
 using server.Data;
 using server.Services;
@@ -9,6 +11,14 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<S3ImageUploadService>();
+builder.Services.AddSingleton<IAmazonS3>((serviceProvider) =>
+{
+    var configuration = serviceProvider.GetRequiredService<IConfiguration>();
+    var regionName = configuration["Aws:Region"] ?? "us-east-1";
+
+    return new AmazonS3Client(RegionEndpoint.GetBySystemName(regionName));
+});
 
 // Add services to the container.
 builder.Services.AddControllers();

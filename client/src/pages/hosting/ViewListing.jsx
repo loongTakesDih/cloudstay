@@ -6,7 +6,8 @@ import {
   publishListing,
   unpublishListing,
   updateListing,
-} from "../../api/api.js";
+  uploadPropertyImage,
+} from "../../api/api";
 import AppHeader from "../../components/AppHeader";
 import { MapPicker } from "../../components/PropertyMap";
 import { useAuth } from "../../context/useAuth";
@@ -69,7 +70,17 @@ const buildEditForm = (listing) => ({
   availableFrom: toDateInputValue(listing.availableFrom),
   availableTo: toDateInputValue(listing.availableTo),
   isAvailable: listing.isAvailable ?? true,
+  imageUrl: listing.imageUrl || "",
+  imageUrls:
+    listing.imageUrls && listing.imageUrls.length > 0
+      ? listing.imageUrls
+      : listing.imageUrl
+        ? [listing.imageUrl]
+        : [],
 });
+
+const getListingCoverImage = (listing) =>
+  listing.imageUrl || listing.imageUrls?.[0] || "";
 
 const tabMeta = {
   unlisted: {
@@ -95,6 +106,7 @@ function ViewListing() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   const filteredListings = useMemo(
     () =>
@@ -222,10 +234,60 @@ function ViewListing() {
         next.state,
         next.country,
       ].filter(Boolean).join(", ");
+
       return {
         ...next,
         address,
         location: [next.city, next.state, next.country].filter(Boolean).join(", "),
+      };
+    });
+  };
+
+  const handleEditPhotoUpload = async (event) => {
+    const files = Array.from(event.target.files || []);
+
+    if (files.length === 0 || !editForm) return;
+
+    setError("");
+
+    if (files.some((file) => !file.type.startsWith("image/"))) {
+      setError("Choose image files to upload.");
+      return;
+    }
+
+    setPhotoUploading(true);
+
+    try {
+      const uploadedImages = await Promise.all(
+        files.map((file) => uploadPropertyImage(file))
+      );
+      const uploadedUrls = uploadedImages.map((upload) => upload.imageUrl);
+
+      setEditForm((currentForm) => {
+        const imageUrls = [...currentForm.imageUrls, ...uploadedUrls].slice(0, 10);
+
+        return {
+          ...currentForm,
+          imageUrl: imageUrls[0] || "",
+          imageUrls,
+        };
+      });
+    } catch (err) {
+      setError(err.response?.data?.message || "Could not upload these photos.");
+    } finally {
+      setPhotoUploading(false);
+      event.target.value = "";
+    }
+  };
+
+  const removeEditPhoto = (imageUrl) => {
+    setEditForm((currentForm) => {
+      const imageUrls = currentForm.imageUrls.filter((url) => url !== imageUrl);
+
+      return {
+        ...currentForm,
+        imageUrl: imageUrls[0] || "",
+        imageUrls,
       };
     });
   };
@@ -241,6 +303,7 @@ function ViewListing() {
     try {
       const updatedListing = await updateListing(editingId, {
         ...editForm,
+        imageUrl: editForm.imageUrls[0] || "",
         pricePerNight: Number(editForm.pricePerNight),
         guestCount: Number(editForm.guestCount),
         bedroomCount: Number(editForm.bedroomCount),
@@ -381,6 +444,45 @@ function ViewListing() {
             </div>
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className="md:col-span-2">
+                <p className="mb-3 text-sm font-bold text-slate-700">
+                  Listing photos
+                </p>
+                {editForm.imageUrls.length > 0 && (
+                  <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {editForm.imageUrls.map((imageUrl, index) => (
+                      <div
+                        key={imageUrl}
+                        className="relative aspect-[4/3] overflow-hidden rounded-2xl bg-slate-100"
+                      >
+                        <img
+                          src={imageUrl}
+                          alt={`Listing photo ${index + 1}`}
+                          className="h-full w-full object-cover"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeEditPhoto(imageUrl)}
+                          className="absolute right-3 top-3 rounded-full bg-white/95 px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition hover:bg-red-50 hover:text-red-700"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <label className="flex cursor-pointer items-center justify-center rounded-2xl border border-dashed border-rose-200 bg-rose-50/60 px-4 py-5 text-sm font-bold text-rose-700 transition hover:bg-rose-50">
+                  {photoUploading ? "Uploading photos..." : "Add photos"}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/gif"
+                    multiple
+                    onChange={handleEditPhotoUpload}
+                    disabled={photoUploading || editForm.imageUrls.length >= 10}
+                    className="sr-only"
+                  />
+                </label>
+              </div>
               <input
                 type="text"
                 value={editForm.title}
@@ -502,10 +604,10 @@ function ViewListing() {
               </button>
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || photoUploading}
                 className="rounded-full bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-200 transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
               >
-                {saving ? "Saving..." : "Save changes"}
+                {saving || photoUploading ? "Saving..." : "Save changes"}
               </button>
             </div>
           </form>
@@ -545,7 +647,10 @@ function ViewListing() {
 
           {!loading && filteredListings.length > 0 && (
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-              {filteredListings.map((listing) => (
+              {filteredListings.map((listing) => {
+                const coverImage = getListingCoverImage(listing);
+
+                return (
                 <article
                   key={listing.id}
                   className="group overflow-hidden rounded-2xl bg-white text-left transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg"
@@ -556,9 +661,9 @@ function ViewListing() {
                     className="block w-full text-left"
                   >
                     <div className="relative aspect-[4/3] overflow-hidden bg-[#fffaf7]">
-                    {listing.imageUrl ? (
+                    {coverImage ? (
                       <img
-                        src={listing.imageUrl}
+                        src={coverImage}
                         alt={listing.title}
                         className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                       />
@@ -642,7 +747,8 @@ function ViewListing() {
                     </button>
                   </div>
                 </article>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>

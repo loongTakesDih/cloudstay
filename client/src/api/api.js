@@ -1,8 +1,10 @@
 import axios from "axios";
 
-const api = axios.create({
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5028/api";
 
-  baseURL: "http://localhost:5028/api", 
+const api = axios.create({
+  baseURL: API_BASE_URL,
 });
 
 api.interceptors.request.use((config) => {
@@ -57,6 +59,27 @@ export const completeHostOnboarding = async (payload) => {
 export const createListing = async (payload) => {
   const response = await api.post("/properties", payload);
   return response.data;
+};
+
+export const createPropertyImageUploadUrl = async (file) => {
+  const response = await api.post("/uploads/property-image-url", {
+    fileName: file.name,
+    contentType: file.type,
+  });
+
+  return response.data;
+};
+
+export const uploadPropertyImage = async (file) => {
+  const upload = await createPropertyImageUploadUrl(file);
+
+  await axios.put(upload.uploadUrl, file, {
+    headers: {
+      "Content-Type": file.type,
+    },
+  });
+
+  return upload;
 };
 
 export const getMyListings = async () => {
