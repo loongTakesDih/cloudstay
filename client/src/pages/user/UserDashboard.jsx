@@ -14,25 +14,6 @@ function UserDashboard() {
   const [loadingTrips, setLoadingTrips] = useState(false);
   const [savedPlaces, setSavedPlaces] = useState([]);
 
-  const handleBecomeHost = async () => {
-    try {
-      // Call the API to become a host
-      const response = await fetch("http://localhost:5028/api/auth/become-host", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${localStorage.getItem("cloudstay_token")}`
-        }
-      });
-      
-      if (response.ok) {
-        // Refresh the page or update user context
-        window.location.reload();
-      }
-    } catch (error) {
-      console.error("Failed to become a host", error);
-    }
-  };
-
   useEffect(() => {
     const fetchTrips = async () => {
       setLoadingTrips(true);
@@ -53,17 +34,21 @@ function UserDashboard() {
   }, [user]);
 
   useEffect(() => {
-    if (!user) {
-      setSavedPlaces([]);
-      return;
-    }
+    const loadId = window.setTimeout(() => {
+      if (!user) {
+        setSavedPlaces([]);
+        return;
+      }
 
-    try {
-      setSavedPlaces(readSavedListings(user.userId));
-    } catch (error) {
-      console.error("Failed to load saved places", error);
-      setSavedPlaces([]);
-    }
+      try {
+        setSavedPlaces(readSavedListings(user.userId));
+      } catch (error) {
+        console.error("Failed to load saved places", error);
+        setSavedPlaces([]);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(loadId);
   }, [user]);
 
   return (
@@ -78,6 +63,12 @@ function UserDashboard() {
               className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
             >
               Profile
+            </button>
+            <button
+              onClick={() => navigate("/messages")}
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+            >
+              Messages
             </button>
             <span className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-600">
               {user?.isHost ? "Host enabled" : "Guest account"}

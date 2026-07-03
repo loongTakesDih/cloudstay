@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../context/useAuth";
 
 function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
 
   const [email, setEmail] = useState("");
@@ -19,7 +20,12 @@ function Login() {
 
     try {
       const redirectPath = await login(email, password);
-      navigate(redirectPath);
+      const returnTo = searchParams.get("returnTo");
+      const safeReturnTo =
+        returnTo?.startsWith("/") && !returnTo.startsWith("//")
+          ? returnTo
+          : redirectPath;
+      navigate(safeReturnTo);
     } catch (err) {
       setError(err.response?.data?.message || "Login failed.");
     } finally {

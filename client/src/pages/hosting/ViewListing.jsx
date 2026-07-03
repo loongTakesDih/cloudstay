@@ -8,6 +8,7 @@ import {
   updateListing,
 } from "../../api/api.js";
 import AppHeader from "../../components/AppHeader";
+import { MapPicker } from "../../components/PropertyMap";
 import { useAuth } from "../../context/useAuth";
 
 const splitValues = (value) => {
@@ -50,6 +51,8 @@ const buildEditForm = (listing) => ({
   propertyCategory: listing.propertyCategory || "Other",
   placeType: listing.placeType || "Entire place",
   address: listing.address || listing.location || "",
+  latitude: listing.latitude ?? null,
+  longitude: listing.longitude ?? null,
   guestCount: listing.guestCount || 1,
   bedroomCount: listing.bedroomCount || 0,
   bedCount: listing.bedCount || 0,
@@ -384,6 +387,22 @@ function ViewListing() {
                 placeholder="Address"
                 required
               />
+              <div className="md:col-span-2">
+                <MapPicker
+                  address={editForm.address}
+                  latitude={editForm.latitude}
+                  longitude={editForm.longitude}
+                  onLocationChange={({ address, latitude, longitude }) =>
+                    setEditForm((currentForm) => ({
+                      ...currentForm,
+                      address: address || currentForm.address,
+                      location: address || currentForm.location,
+                      latitude,
+                      longitude,
+                    }))
+                  }
+                />
+              </div>
               <input
                 type="date"
                 value={editForm.availableFrom}

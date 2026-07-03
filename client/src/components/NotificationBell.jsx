@@ -9,12 +9,11 @@ function NotificationBell({ userId }) {
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
-    if (!userId) {
-      setNotifications([]);
-      return;
-    }
+    const loadId = window.setTimeout(() => {
+      setNotifications(userId ? readNotifications(userId) : []);
+    }, 0);
 
-    setNotifications(readNotifications(userId));
+    return () => window.clearTimeout(loadId);
   }, [userId]);
 
   useEffect(() => {

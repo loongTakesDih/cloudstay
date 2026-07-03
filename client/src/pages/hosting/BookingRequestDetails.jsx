@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getBookingById, updateBookingStatus } from "../../api/api.js";
+import {
+  getBookingById,
+  getOrCreateConversation,
+  updateBookingStatus,
+} from "../../api/api.js";
 import AppHeader from "../../components/AppHeader";
 import { useAuth } from "../../context/useAuth";
 import { addNotification } from "../../utils/localState.js";
@@ -21,6 +25,7 @@ function BookingRequestDetails() {
   const { user } = useAuth();
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [openingChat, setOpeningChat] = useState(false);
 
   useEffect(() => {
     if (user !== null && !user.isHost) {
@@ -55,8 +60,20 @@ function BookingRequestDetails() {
         });
       }
       navigate("/hosting/dashboard");
-    } catch (err) {
+    } catch {
       alert("Failed to update status.");
+    }
+  };
+
+  const handleMessageGuest = async () => {
+    setOpeningChat(true);
+
+    try {
+      const conversation = await getOrCreateConversation(booking.id);
+      navigate(`/messages/${conversation.id}`);
+    } catch (error) {
+      alert(error?.response?.data?.message || "Failed to open the conversation.");
+      setOpeningChat(false);
     }
   };
 
@@ -105,6 +122,14 @@ function BookingRequestDetails() {
                 {formatDate(booking.checkIn)} - {formatDate(booking.checkOut)}
               </p>
             </div>
+            <button
+              type="button"
+              onClick={handleMessageGuest}
+              disabled={openingChat}
+              className="w-full rounded-full bg-slate-950 py-3 font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {openingChat ? "Opening chat..." : "Message guest"}
+            </button>
             {isPending ? (
               <div className="flex gap-4 pt-6">
                 <button

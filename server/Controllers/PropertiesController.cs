@@ -56,6 +56,47 @@ public class PropertiesController : ControllerBase
         return Ok(await MapPropertyAsync(property, GetCurrentUserId()));
     }
 
+    [HttpGet("{id:int}/availability")]
+    public async Task<ActionResult> GetPropertyAvailability(int id)
+    {
+        var property = await _context.Properties
+            .Where(item => item.Id == id)
+            .Select(item => new
+            {
+                item.Id,
+                item.AvailableFrom,
+                item.AvailableTo,
+                item.IsAvailable
+            })
+            .FirstOrDefaultAsync();
+
+        if (property == null)
+        {
+            return NotFound(new { message = "Listing not found." });
+        }
+
+        var blockedRanges = await _context.Bookings
+            .Where(booking =>
+                booking.PropertyId == id &&
+                booking.Status.ToLower() == "accepted")
+            .OrderBy(booking => booking.CheckIn)
+            .Select(booking => new
+            {
+                booking.CheckIn,
+                booking.CheckOut
+            })
+            .ToListAsync();
+
+        return Ok(new
+        {
+            property.Id,
+            property.AvailableFrom,
+            property.AvailableTo,
+            property.IsAvailable,
+            BlockedRanges = blockedRanges
+        });
+    }
+
     [Authorize]
     [HttpPost]
     public async Task<ActionResult<PropertyResponseDto>> CreateProperty(
@@ -312,6 +353,17 @@ public class PropertiesController : ControllerBase
             return "Address or location is required.";
         }
 
+        if (request.Latitude.HasValue != request.Longitude.HasValue)
+        {
+            return "Select a complete location on the map.";
+        }
+
+        if (request.Latitude is < -90 or > 90 ||
+            request.Longitude is < -180 or > 180)
+        {
+            return "The selected map location is invalid.";
+        }
+
         if (request.GuestCount < 1)
         {
             return "Guest count must be at least 1.";
@@ -386,6 +438,8 @@ public class PropertiesController : ControllerBase
         property.PropertyCategory = EmptyToNull(request.PropertyCategory ?? string.Empty);
         property.PlaceType = EmptyToNull(request.PlaceType ?? string.Empty);
         property.Address = string.IsNullOrWhiteSpace(address) ? property.Location : address;
+        property.Latitude = request.Latitude;
+        property.Longitude = request.Longitude;
         
         // 3. Integer Fixes: Added ?? 0 to safely convert 'int?' to 'int'
         property.GuestCount = request.GuestCount ?? 0;
@@ -485,6 +539,8 @@ internal static PropertyResponseDto MapProperty(
             PropertyCategory = property.PropertyCategory,
             PlaceType = property.PlaceType,
             Address = property.Address,
+            Latitude = property.Latitude,
+            Longitude = property.Longitude,
             GuestCount = property.GuestCount,
             BedroomCount = property.BedroomCount,
             BedCount = property.BedCount,

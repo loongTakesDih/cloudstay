@@ -4,6 +4,38 @@ import AppHeader from "../../components/AppHeader";
 import { useAuth } from "../../context/useAuth";
 import { getPublicListings } from "../../api/api.js";
 
+const applyFilters = (sourceListings, nextFilters) => {
+  const normalizedWhere = nextFilters.where.trim().toLowerCase();
+  const requestedGuests = Number(nextFilters.guests);
+  const requestedCheckIn = nextFilters.checkIn ? new Date(nextFilters.checkIn) : null;
+  const requestedCheckOut = nextFilters.checkOut ? new Date(nextFilters.checkOut) : null;
+
+  return sourceListings.filter((listing) => {
+    const matchesWhere =
+      normalizedWhere.length === 0 ||
+      [listing.title, listing.location, listing.address, listing.placeType]
+        .filter(Boolean)
+        .some((value) => value.toLowerCase().includes(normalizedWhere));
+
+    const availableFrom = listing.availableFrom ? new Date(listing.availableFrom) : null;
+    const availableTo = listing.availableTo ? new Date(listing.availableTo) : null;
+
+    const matchesDates =
+      !requestedCheckIn ||
+      !requestedCheckOut ||
+      ((availableFrom === null || requestedCheckIn >= availableFrom) &&
+        (availableTo === null || requestedCheckOut <= availableTo));
+
+    const matchesGuests =
+      !nextFilters.guests ||
+      !Number.isFinite(requestedGuests) ||
+      requestedGuests <= 0 ||
+      requestedGuests <= (listing.guestCount || 0);
+
+    return matchesWhere && matchesDates && matchesGuests;
+  });
+};
+
 function ExploreStays() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -19,44 +51,12 @@ function ExploreStays() {
     guests: "",
   });
 
-  const applyFilters = (sourceListings, nextFilters) => {
-    const normalizedWhere = nextFilters.where.trim().toLowerCase();
-    const requestedGuests = Number(nextFilters.guests);
-    const requestedCheckIn = nextFilters.checkIn ? new Date(nextFilters.checkIn) : null;
-    const requestedCheckOut = nextFilters.checkOut ? new Date(nextFilters.checkOut) : null;
-
-    return sourceListings.filter((listing) => {
-      const matchesWhere =
-        normalizedWhere.length === 0 ||
-        [listing.title, listing.location, listing.address, listing.placeType]
-          .filter(Boolean)
-          .some((value) => value.toLowerCase().includes(normalizedWhere));
-
-      const availableFrom = listing.availableFrom ? new Date(listing.availableFrom) : null;
-      const availableTo = listing.availableTo ? new Date(listing.availableTo) : null;
-
-      const matchesDates =
-        !requestedCheckIn ||
-        !requestedCheckOut ||
-        ((availableFrom === null || requestedCheckIn >= availableFrom) &&
-          (availableTo === null || requestedCheckOut <= availableTo));
-
-      const matchesGuests =
-        !nextFilters.guests ||
-        !Number.isFinite(requestedGuests) ||
-        requestedGuests <= 0 ||
-        requestedGuests <= (listing.guestCount || 0);
-
-      return matchesWhere && matchesDates && matchesGuests;
-    });
-  };
-
   useEffect(() => {
     const fetchListings = async () => {
       try {
         const data = await getPublicListings();
         setListings(data);
-        setFilteredListings(applyFilters(data, filters));
+        setFilteredListings(data);
       } catch (err) {
         console.error("Failed to fetch listings", err);
         setError("Could not load stays. Please try again later.");

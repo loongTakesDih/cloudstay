@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getMyTrips } from "../../api/api.js";
+import { getMyTrips, getOrCreateConversation } from "../../api/api.js";
 import AppHeader from "../../components/AppHeader";
+import ReviewForm from "../../components/ReviewForm";
 
 const formatDate = (value) => {
   if (!value) return "Not set";
@@ -31,6 +32,8 @@ function BookingDetails() {
   const navigate = useNavigate();
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [openingChat, setOpeningChat] = useState(false);
+  const [chatError, setChatError] = useState("");
 
   useEffect(() => {
     const fetchBooking = async () => {
@@ -48,6 +51,21 @@ function BookingDetails() {
 
     fetchBooking();
   }, [bookingId]);
+
+  const handleMessageHost = async () => {
+    setOpeningChat(true);
+    setChatError("");
+
+    try {
+      const conversation = await getOrCreateConversation(booking.id);
+      navigate(`/messages/${conversation.id}`);
+    } catch (error) {
+      setChatError(
+        error?.response?.data?.message || "Could not open the conversation.",
+      );
+      setOpeningChat(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -167,6 +185,26 @@ function BookingDetails() {
               </p>
             </div>
           </div>
+
+          <div className="mt-8 border-t border-slate-200 pt-6">
+            {chatError && (
+              <p role="alert" className="mb-3 text-sm font-semibold text-rose-600">
+                {chatError}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={handleMessageHost}
+              disabled={openingChat}
+              className="rounded-xl bg-rose-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {openingChat ? "Opening chat..." : "Message host"}
+            </button>
+          </div>
+
+          {booking.status === "Accepted" && (
+            <ReviewForm bookingId={booking.id} />
+          )}
         </section>
       </main>
     </div>

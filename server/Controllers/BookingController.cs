@@ -34,6 +34,8 @@ public class BookingsController : ControllerBase
         // 2. Validate the dates
         var checkInDate = request.CheckIn.Date;
         var checkOutDate = request.CheckOut.Date;
+        var checkInUtc = DateTime.SpecifyKind(checkInDate, DateTimeKind.Utc);
+        var checkOutUtc = DateTime.SpecifyKind(checkOutDate, DateTimeKind.Utc);
 
         if (checkInDate >= checkOutDate)
         {
@@ -58,6 +60,31 @@ public class BookingsController : ControllerBase
             return BadRequest(new { message = "Hosts cannot book their own property." });
         }
 
+        if ((property.AvailableFrom.HasValue &&
+             checkInDate < property.AvailableFrom.Value.Date) ||
+            (property.AvailableTo.HasValue &&
+             checkOutDate > property.AvailableTo.Value.Date))
+        {
+            return BadRequest(new
+            {
+                message = "The selected dates are outside this listing's availability."
+            });
+        }
+
+        var overlapsAcceptedBooking = await _context.Bookings.AnyAsync(booking =>
+            booking.PropertyId == property.Id &&
+            booking.Status.ToLower() == "accepted" &&
+            booking.CheckIn < checkOutUtc &&
+            booking.CheckOut > checkInUtc);
+
+        if (overlapsAcceptedBooking)
+        {
+            return Conflict(new
+            {
+                message = "Those dates are no longer available. Please choose different dates."
+            });
+        }
+
         // 4. Securely calculate the Total Price
         var totalNights = (checkOutDate - checkInDate).Days;
         var calculatedPrice = totalNights * property.PricePerNight;
@@ -68,8 +95,8 @@ public class BookingsController : ControllerBase
             GuestId = guestId,
             PropertyId = request.PropertyId,
             // Convert to UTC to match PostgreSQL's TIMESTAMP WITH TIME ZONE
-            CheckIn = checkInDate.ToUniversalTime(), 
-            CheckOut = checkOutDate.ToUniversalTime(),
+            CheckIn = checkInUtc,
+            CheckOut = checkOutUtc,
             TotalPrice = calculatedPrice,
             Status = "Pending", // Status defaults to Pending for Host review
             CreatedAt = DateTime.UtcNow
@@ -169,7 +196,31 @@ public async Task<ActionResult> UpdateStatus(int id, [FromBody] StatusDto status
         return Forbid();
     }
 
-    booking.Status = statusDto.Status;
+    var requestedStatus = statusDto.Status?.Trim();
+    if (requestedStatus is not ("Accepted" or "Declined"))
+    {
+        return BadRequest(new { message = "Status must be Accepted or Declined." });
+    }
+
+    if (requestedStatus == "Accepted")
+    {
+        var overlapsAcceptedBooking = await _context.Bookings.AnyAsync(other =>
+            other.Id != booking.Id &&
+            other.PropertyId == booking.PropertyId &&
+            other.Status.ToLower() == "accepted" &&
+            other.CheckIn < booking.CheckOut &&
+            other.CheckOut > booking.CheckIn);
+
+        if (overlapsAcceptedBooking)
+        {
+            return Conflict(new
+            {
+                message = "This stay overlaps another accepted booking."
+            });
+        }
+    }
+
+    booking.Status = requestedStatus;
     await _context.SaveChangesAsync();
     return Ok();
 }

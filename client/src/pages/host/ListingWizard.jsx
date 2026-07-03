@@ -7,6 +7,7 @@ import CounterControl from "./CounterControl";
 import PriceSelector from "./PriceSelector";
 import WizardShell from "./WizardShell";
 import WizardVisual from "./WizardVisual";
+import { MapPicker } from "../../components/PropertyMap";
 
 const propertyCategories = [
   "Apartment",
@@ -77,6 +78,8 @@ const initialForm = {
   propertyCategory: "",
   placeType: "",
   address: "",
+  latitude: null,
+  longitude: null,
   guestCount: 1,
   bedroomCount: 0,
   bedCount: 0,
@@ -221,7 +224,13 @@ function ListingWizard({ mode = "become-host" }) {
       case "placeType":
         return hasText(form.placeType);
       case "address":
-        return hasText(form.address);
+        return (
+          hasText(form.address) &&
+          form.latitude != null &&
+          form.longitude != null &&
+          Number.isFinite(Number(form.latitude)) &&
+          Number.isFinite(Number(form.longitude))
+        );
       case "basics":
         return (
           form.guestCount >= 1 &&
@@ -263,6 +272,15 @@ function ListingWizard({ mode = "become-host" }) {
     }));
   };
 
+  const updateMapLocation = ({ address, latitude, longitude }) => {
+    setForm((currentForm) => ({
+      ...currentForm,
+      address: address || currentForm.address,
+      latitude,
+      longitude,
+    }));
+  };
+
   const buildPayload = () => ({
     title: form.title,
     description: form.description,
@@ -271,6 +289,8 @@ function ListingWizard({ mode = "become-host" }) {
     propertyCategory: form.propertyCategory,
     placeType: form.placeType,
     address: form.address,
+    latitude: form.latitude,
+    longitude: form.longitude,
     guestCount: form.guestCount,
     bedroomCount: form.bedroomCount,
     bedCount: form.bedCount,
@@ -392,16 +412,24 @@ function ListingWizard({ mode = "become-host" }) {
             <ScreenHeading
               kicker="Location"
               title="Where is your place located?"
-              helper="Use the address or a clear location guests and hosts can recognize."
+              helper="Enter the address, then click the map to pin the exact location guests will see."
             />
-            <input
-              type="text"
-              value={form.address}
-              onChange={(event) => updateForm("address", event.target.value)}
-              className="w-full rounded-3xl border border-white/80 bg-white/90 px-6 py-5 text-lg font-semibold text-slate-950 shadow-xl shadow-rose-100/40 outline-none transition-all duration-300 focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
-              placeholder="Unit, street, city, state"
-              autoFocus
-            />
+            <div className="space-y-4">
+              <input
+                type="text"
+                value={form.address}
+                onChange={(event) => updateForm("address", event.target.value)}
+                className="w-full rounded-3xl border border-white/80 bg-white/90 px-6 py-5 text-lg font-semibold text-slate-950 shadow-xl shadow-rose-100/40 outline-none transition-all duration-300 focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                placeholder="Unit, street, city, state"
+                autoFocus
+              />
+              <MapPicker
+                address={form.address}
+                latitude={form.latitude}
+                longitude={form.longitude}
+                onLocationChange={updateMapLocation}
+              />
+            </div>
           </>
         );
       case "basics":

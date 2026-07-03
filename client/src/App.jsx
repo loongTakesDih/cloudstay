@@ -17,6 +17,8 @@ import UserDashboard from "./pages/user/UserDashboard";
 import BookingDetails from "./pages/trips/BookingDetails";
 import HostOnboarding from "./pages/host/HostOnboarding";
 import BookingRequestDetails from "./pages/hosting/BookingRequestDetails";
+import MessagesPage from "./pages/chat/MessagesPage";
+import MessageNotifications from "./components/MessageNotifications";
 
 function HomeRedirect() {
   const { getRedirectPath, loading, user } = useAuth();
@@ -40,6 +42,7 @@ function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <MessageNotifications />
         <Routes>
           <Route path="/" element={<HomeRedirect />} />
           <Route path="/login" element={<Login />} />
@@ -83,6 +86,24 @@ function App() {
             element={
               <ProtectedRoute>
                 <BookingDetails />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/messages"
+            element={
+              <ProtectedRoute>
+                <MessagesPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/messages/:conversationId"
+            element={
+              <ProtectedRoute>
+                <MessagesPage />
               </ProtectedRoute>
             }
           />

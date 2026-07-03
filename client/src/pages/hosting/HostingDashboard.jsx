@@ -4,6 +4,7 @@ import AppHeader from "../../components/AppHeader";
 import { useAuth } from "../../context/useAuth";
 import { getBookingRequests, getMyListings } from "../../api/api";
 import { formatBookingDate, summarizeHosting } from "../../utils/hostingData.js";
+import HostNotificationBell from "../../components/HostNotificationBell.jsx";
 
 function HostingDashboard() {
   const navigate = useNavigate();
@@ -57,6 +58,13 @@ function HostingDashboard() {
             >
               Profile
             </button>
+            <button
+              onClick={() => navigate("/messages")}
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
+            >
+              Messages
+            </button>
+            <HostNotificationBell />
             <button
               onClick={() => navigate("/dashboard")}
               className="rounded-lg bg-rose-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-600"

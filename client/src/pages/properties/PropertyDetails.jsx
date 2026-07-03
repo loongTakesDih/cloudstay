@@ -2,11 +2,16 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   getProperty,
+  getPropertyAvailability,
+  getOrCreatePropertyConversation,
   publishListing,
   unpublishListing,
   createBookingRequest 
 } from "../../api/api";
 import AppHeader from "../../components/AppHeader";
+import AvailabilityCalendar from "../../components/AvailabilityCalendar";
+import PropertyReviews from "../../components/PropertyReviews";
+import { PropertyLocationMap } from "../../components/PropertyMap";
 import { useAuth } from "../../context/useAuth";
 import { readSavedListings, writeSavedListings } from "../../utils/localState.js";
 
@@ -192,8 +197,12 @@ function LocationSection({ listing }) {
       <p className="mt-3 text-sm font-semibold text-slate-600">
         {listing.address || listing.location || "Location coming soon"}
       </p>
-      <div className="mt-5 flex h-48 items-center justify-center rounded-3xl bg-gradient-to-br from-rose-50 via-white to-amber-50 text-sm font-bold text-slate-400">
-        Map preview coming soon
+      <div className="mt-5">
+        <PropertyLocationMap
+          address={listing.address || listing.location}
+          latitude={listing.latitude}
+          longitude={listing.longitude}
+        />
       </div>
     </section>
   );
@@ -334,8 +343,41 @@ function PropertyBookingCard({ listing, user }) {
   const [guests, setGuests] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
+  const [availability, setAvailability] = useState(null);
 
-  const isValidDates = checkIn && checkOut && new Date(checkIn) < new Date(checkOut);
+  useEffect(() => {
+    let active = true;
+    const loadId = window.setTimeout(async () => {
+      try {
+        const data = await getPropertyAvailability(listing.id);
+        if (active) setAvailability(data);
+      } catch {
+        if (active) setAvailability(null);
+      }
+    }, 0);
+
+    return () => {
+      active = false;
+      window.clearTimeout(loadId);
+    };
+  }, [listing.id]);
+
+  const today = new Date();
+  const todayValue = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const availableFrom = listing.availableFrom?.slice(0, 10);
+  const availableTo = listing.availableTo?.slice(0, 10);
+  const minimumDate =
+    availableFrom && availableFrom > todayValue ? availableFrom : todayValue;
+  const baseDatesValid =
+    checkIn && checkOut && new Date(checkIn) < new Date(checkOut);
+  const overlapsBlockedDates =
+    baseDatesValid &&
+    availability?.blockedRanges?.some(
+      (range) =>
+        range.checkIn.slice(0, 10) < checkOut &&
+        range.checkOut.slice(0, 10) > checkIn,
+    );
+  const isValidDates = baseDatesValid && !overlapsBlockedDates;
   
   if (requestSent) {
     return (
@@ -367,6 +409,8 @@ function PropertyBookingCard({ listing, user }) {
             <input 
               type="date" 
               value={checkIn}
+              min={minimumDate}
+              max={availableTo}
               onChange={(e) => setCheckIn(e.target.value)}
               className="mt-1 w-full text-sm outline-none" 
             />
@@ -376,6 +420,8 @@ function PropertyBookingCard({ listing, user }) {
             <input 
               type="date" 
               value={checkOut}
+              min={checkIn || minimumDate}
+              max={availableTo}
               onChange={(e) => setCheckOut(e.target.value)}
               className="mt-1 w-full text-sm outline-none" 
             />
@@ -422,7 +468,9 @@ function PropertyBookingCard({ listing, user }) {
 
         {user && !listing.isOwner && !isValidDates && (
           <p className="mt-3 text-center text-xs font-semibold text-slate-500">
-            Select valid check-in and checkout dates to proceed.
+            {overlapsBlockedDates
+              ? "Those dates include an unavailable night."
+              : "Select valid check-in and checkout dates to proceed."}
           </p>
         )}
       </aside>
@@ -454,6 +502,8 @@ function PropertyDetails() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [isSaved, setIsSaved] = useState(false);
+  const [openingChat, setOpeningChat] = useState(false);
+  const [chatError, setChatError] = useState("");
 
   useEffect(() => {
     let isActive = true;
@@ -479,17 +529,43 @@ function PropertyDetails() {
   }, [id]);
 
   useEffect(() => {
-    if (!listing || !user) {
-      setIsSaved(false);
-      return;
-    }
+    const loadId = window.setTimeout(() => {
+      if (!listing || !user) {
+        setIsSaved(false);
+        return;
+      }
 
-    const savedListings = readSavedListings(user.userId);
-    setIsSaved(savedListings.some((saved) => saved.id === listing.id));
+      const savedListings = readSavedListings(user.userId);
+      setIsSaved(savedListings.some((saved) => saved.id === listing.id));
+    }, 0);
+
+    return () => window.clearTimeout(loadId);
   }, [listing, user]);
 
   const handlePublish = async () => setListing(await publishListing(id));
   const handleUnpublish = async () => setListing(await unpublishListing(id));
+
+  const handleMessageHost = async () => {
+    if (!user) {
+      navigate(`/login?returnTo=${encodeURIComponent(`/properties/${listing?.id || id}`)}`);
+      return;
+    }
+
+    if (!listing || listing.isOwner || openingChat) return;
+
+    setOpeningChat(true);
+    setChatError("");
+
+    try {
+      const conversation = await getOrCreatePropertyConversation(listing.id);
+      navigate(`/messages/${conversation.id}`);
+    } catch (requestError) {
+      setChatError(
+        requestError?.response?.data?.message || "Could not open the conversation.",
+      );
+      setOpeningChat(false);
+    }
+  };
 
   const handleToggleSave = () => {
     if (!user) {
@@ -621,26 +697,38 @@ function PropertyDetails() {
 
               <PropertyAmenities listing={listing} />
 
-              <section className="border-b border-slate-200 py-6">
-                <h2 className="text-xl font-bold text-slate-950">Availability</h2>
-                <p className="mt-3 text-sm font-semibold text-slate-600">
-                  Available from {formatDate(listing.availableFrom)} to {formatDate(listing.availableTo)}.
-                </p>
-                <p className="mt-2 text-sm font-semibold text-slate-500">
-                  {listing.isAvailable ? "Currently available to book." : "Currently unavailable."}
-                </p>
-              </section>
+              <AvailabilityCalendar propertyId={listing.id} />
 
               <LocationSection listing={listing} />
+
+              <PropertyReviews propertyId={listing.id} />
 
               <section className="border-b border-slate-200 py-6">
                 <h2 className="text-xl font-bold text-slate-950">Meet your host</h2>
                 <p className="mt-3 text-sm font-semibold text-slate-600">
                   {listing.host?.username || "CloudStay host"} · CloudStay Host · Member since {formatMemberSince(listing.host?.createdAt)}
                 </p>
-                <button className="mt-4 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700">
-                  Message Host
-                </button>
+                {!listing.isOwner && (
+                  <>
+                    {chatError && (
+                      <p role="alert" className="mt-3 text-sm font-semibold text-rose-600">
+                        {chatError}
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleMessageHost}
+                      disabled={openingChat}
+                      className="mt-4 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                    >
+                      {!user
+                        ? "Log in to message host"
+                        : openingChat
+                          ? "Opening chat..."
+                          : "Message host"}
+                    </button>
+                  </>
+                )}
               </section>
 
               <ThingsToKnow listing={listing} />
