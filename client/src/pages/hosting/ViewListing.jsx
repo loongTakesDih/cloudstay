@@ -10,6 +10,7 @@ import {
 import AppHeader from "../../components/AppHeader";
 import { MapPicker } from "../../components/PropertyMap";
 import { useAuth } from "../../context/useAuth";
+import { popularCities } from "../../utils/searchOptions.js";
 
 const splitValues = (value) => {
   if (!value) return [];
@@ -53,6 +54,11 @@ const buildEditForm = (listing) => ({
   address: listing.address || listing.location || "",
   latitude: listing.latitude ?? null,
   longitude: listing.longitude ?? null,
+  addressLine: listing.addressLine || listing.address || listing.location || "",
+  city: listing.city || "",
+  state: listing.state || "",
+  postalCode: listing.postalCode || "",
+  country: listing.country || "Malaysia",
   guestCount: listing.guestCount || 1,
   bedroomCount: listing.bedroomCount || 0,
   bedCount: listing.bedCount || 0,
@@ -204,6 +210,24 @@ function ViewListing() {
       ...currentForm,
       [field]: value,
     }));
+  };
+
+  const updateEditLocation = (field, value) => {
+    setEditForm((currentForm) => {
+      const next = { ...currentForm, [field]: value };
+      const address = [
+        next.addressLine,
+        next.city,
+        next.postalCode,
+        next.state,
+        next.country,
+      ].filter(Boolean).join(", ");
+      return {
+        ...next,
+        address,
+        location: [next.city, next.state, next.country].filter(Boolean).join(", "),
+      };
+    });
   };
 
   const handleSaveEdit = async (event) => {
@@ -378,13 +402,45 @@ function ViewListing() {
               />
               <input
                 type="text"
-                value={editForm.address}
-                onChange={(event) => {
-                  updateEditForm("address", event.target.value);
-                  updateEditForm("location", event.target.value);
-                }}
+                value={editForm.addressLine}
+                onChange={(event) => updateEditLocation("addressLine", event.target.value)}
                 className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100 md:col-span-2"
-                placeholder="Address"
+                placeholder="Unit and street address"
+                required
+              />
+              <input
+                type="text"
+                list="edit-popular-cities"
+                value={editForm.city}
+                onChange={(event) => updateEditLocation("city", event.target.value)}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                placeholder="City"
+                required
+              />
+              <datalist id="edit-popular-cities">
+                {popularCities.map((city) => <option key={city} value={city} />)}
+              </datalist>
+              <input
+                type="text"
+                value={editForm.state}
+                onChange={(event) => updateEditLocation("state", event.target.value)}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                placeholder="State"
+                required
+              />
+              <input
+                type="text"
+                value={editForm.postalCode}
+                onChange={(event) => updateEditLocation("postalCode", event.target.value)}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                placeholder="Postal code"
+              />
+              <input
+                type="text"
+                value={editForm.country}
+                onChange={(event) => updateEditLocation("country", event.target.value)}
+                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                placeholder="Country"
                 required
               />
               <div className="md:col-span-2">

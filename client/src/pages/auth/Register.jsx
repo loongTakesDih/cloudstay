@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import MarketplaceHeader from "../../components/MarketplaceHeader";
 import { useAuth } from "../../context/useAuth";
 
 function Register() {
@@ -29,8 +30,10 @@ function Register() {
   };
 
   return (
-    <main className="min-h-screen bg-[#fffaf7] px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
-      <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
+    <div className="min-h-screen bg-[#fffaf7] text-slate-950">
+      <MarketplaceHeader />
+      <main className="px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto grid min-h-[calc(100vh-8.75rem)] max-w-6xl items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
         <section className="max-w-xl">
           <p className="text-sm font-semibold uppercase tracking-normal text-rose-500">
             CloudStay
@@ -129,7 +132,8 @@ function Register() {
           </p>
         </section>
       </div>
-    </main>
+      </main>
+    </div>
   );
 }
 

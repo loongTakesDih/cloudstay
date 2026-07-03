@@ -13,7 +13,7 @@ function HostCapabilityRoute({ children }) {
   }
 
   if (!user?.isHost) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return children;

@@ -30,16 +30,25 @@ namespace server.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("Adults")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("CheckIn")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<DateTime>("CheckOut")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<int>("Children")
+                        .HasColumnType("integer");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<int>("GuestId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Infants")
                         .HasColumnType("integer");
 
                     b.Property<int>("PropertyId")
@@ -149,6 +158,9 @@ namespace server.Migrations
                     b.Property<string>("Address")
                         .HasColumnType("text");
 
+                    b.Property<string>("AddressLine")
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("AvailableFrom")
                         .HasColumnType("timestamp with time zone");
 
@@ -163,6 +175,12 @@ namespace server.Migrations
 
                     b.Property<int?>("BedroomCount")
                         .HasColumnType("integer");
+
+                    b.Property<string>("City")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Country")
+                        .HasColumnType("text");
 
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -196,6 +214,9 @@ namespace server.Migrations
                     b.Property<string>("PlaceType")
                         .HasColumnType("text");
 
+                    b.Property<string>("PostalCode")
+                        .HasColumnType("text");
+
                     b.Property<decimal>("PricePerNight")
                         .HasColumnType("numeric");
 
@@ -206,6 +227,9 @@ namespace server.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("SafetyFeatures")
+                        .HasColumnType("text");
+
+                    b.Property<string>("State")
                         .HasColumnType("text");
 
                     b.Property<string>("Title")

@@ -9,11 +9,13 @@ function NotificationBell({ userId }) {
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
-    const loadId = window.setTimeout(() => {
-      setNotifications(userId ? readNotifications(userId) : []);
-    }, 0);
-
-    return () => window.clearTimeout(loadId);
+    let active = true;
+    Promise.resolve().then(() => {
+      if (active) setNotifications(userId ? readNotifications(userId) : []);
+    });
+    return () => {
+      active = false;
+    };
   }, [userId]);
 
   useEffect(() => {
@@ -42,6 +44,21 @@ function NotificationBell({ userId }) {
       );
       setNotifications(updated);
     }
+  };
+
+  const getTargetPath = (notification) => {
+    if (notification.targetPath) return notification.targetPath;
+    if (!notification.bookingId) return "";
+    return notification.audience === "host"
+      ? `/hosting/requests/${notification.bookingId}`
+      : `/trips/${notification.bookingId}`;
+  };
+
+  const getNotificationLabel = (notification) => {
+    if (notification.type === "message") return "Message";
+    return notification.audience === "host" || notification.direction === "incoming"
+      ? "Incoming"
+      : "Travel";
   };
 
   return (
@@ -83,9 +100,8 @@ function NotificationBell({ userId }) {
                   type="button"
                   onClick={() => {
                     setOpen(false);
-                    if (notification.bookingId) {
-                      navigate(`/trips/${notification.bookingId}`);
-                    }
+                    const target = getTargetPath(notification);
+                    if (target) navigate(target);
                   }}
                   className="block w-full rounded-2xl border border-slate-100 bg-slate-50 p-4 text-left transition hover:border-rose-200 hover:bg-rose-50"
                 >
@@ -98,7 +114,7 @@ function NotificationBell({ userId }) {
                           : "bg-rose-50 text-rose-700"
                       }`}
                     >
-                      {notification.status || "Update"}
+                      {getNotificationLabel(notification)}
                     </span>
                   </div>
                   <p className="mt-2 text-sm text-slate-600">{notification.message}</p>

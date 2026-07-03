@@ -8,6 +8,7 @@ import PriceSelector from "./PriceSelector";
 import WizardShell from "./WizardShell";
 import WizardVisual from "./WizardVisual";
 import { MapPicker } from "../../components/PropertyMap";
+import { popularCities } from "../../utils/searchOptions.js";
 
 const propertyCategories = [
   "Apartment",
@@ -77,6 +78,11 @@ const amenityGroups = [
 const initialForm = {
   propertyCategory: "",
   placeType: "",
+  addressLine: "",
+  city: "",
+  state: "",
+  postalCode: "",
+  country: "Malaysia",
   address: "",
   latitude: null,
   longitude: null,
@@ -225,7 +231,10 @@ function ListingWizard({ mode = "become-host" }) {
         return hasText(form.placeType);
       case "address":
         return (
-          hasText(form.address) &&
+          hasText(form.addressLine) &&
+          hasText(form.city) &&
+          hasText(form.state) &&
+          hasText(form.country) &&
           form.latitude != null &&
           form.longitude != null &&
           Number.isFinite(Number(form.latitude)) &&
@@ -285,12 +294,17 @@ function ListingWizard({ mode = "become-host" }) {
     title: form.title,
     description: form.description,
     pricePerNight: Number(form.pricePerNight),
-    location: form.address,
+    location: [form.city, form.state, form.country].filter(Boolean).join(", "),
     propertyCategory: form.propertyCategory,
     placeType: form.placeType,
     address: form.address,
     latitude: form.latitude,
     longitude: form.longitude,
+    addressLine: form.addressLine,
+    city: form.city,
+    state: form.state,
+    postalCode: form.postalCode,
+    country: form.country,
     guestCount: form.guestCount,
     bedroomCount: form.bedroomCount,
     bedCount: form.bedCount,
@@ -407,22 +421,83 @@ function ListingWizard({ mode = "become-host" }) {
           </>
         );
       case "address":
+        {
+          const updateLocation = (field, value) => {
+            const next = { ...form, [field]: value };
+            const address = [
+              next.addressLine,
+              next.city,
+              next.postalCode,
+              next.state,
+              next.country,
+            ].filter(Boolean).join(", ");
+            setForm({ ...next, address });
+          };
         return (
           <>
             <ScreenHeading
               kicker="Location"
               title="Where is your place located?"
-              helper="Enter the address, then click the map to pin the exact location guests will see."
+              helper="Add a structured address, then click the map to pin the exact location guests will see."
             />
             <div className="space-y-4">
-              <input
-                type="text"
-                value={form.address}
-                onChange={(event) => updateForm("address", event.target.value)}
-                className="w-full rounded-3xl border border-white/80 bg-white/90 px-6 py-5 text-lg font-semibold text-slate-950 shadow-xl shadow-rose-100/40 outline-none transition-all duration-300 focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
-                placeholder="Unit, street, city, state"
-                autoFocus
-              />
+              <div className="grid gap-4 rounded-3xl border border-white/80 bg-white/70 p-5 shadow-xl shadow-rose-100/40 sm:grid-cols-2">
+                <label className="sm:col-span-2">
+                <span className="mb-2 block text-sm font-bold text-slate-700">Unit and street address</span>
+                <input
+                  type="text"
+                  value={form.addressLine}
+                  onChange={(event) => updateLocation("addressLine", event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                  placeholder="Unit 12, Jalan Example"
+                  autoFocus
+                />
+              </label>
+              <label>
+                <span className="mb-2 block text-sm font-bold text-slate-700">City</span>
+                <input
+                  type="text"
+                  list="popular-cities"
+                  value={form.city}
+                  onChange={(event) => updateLocation("city", event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                  placeholder="Kuala Lumpur"
+                />
+                <datalist id="popular-cities">
+                  {popularCities.map((city) => <option key={city} value={city} />)}
+                </datalist>
+              </label>
+              <label>
+                <span className="mb-2 block text-sm font-bold text-slate-700">State</span>
+                <input
+                  type="text"
+                  value={form.state}
+                  onChange={(event) => updateLocation("state", event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                  placeholder="Selangor"
+                />
+              </label>
+              <label>
+                <span className="mb-2 block text-sm font-bold text-slate-700">Postal code</span>
+                <input
+                  type="text"
+                  value={form.postalCode}
+                  onChange={(event) => updateLocation("postalCode", event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                  placeholder="50000"
+                />
+              </label>
+              <label>
+                <span className="mb-2 block text-sm font-bold text-slate-700">Country</span>
+                <input
+                  type="text"
+                  value={form.country}
+                  onChange={(event) => updateLocation("country", event.target.value)}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                  placeholder="Malaysia"
+                />
+                </label>
+              </div>
               <MapPicker
                 address={form.address}
                 latitude={form.latitude}
@@ -432,6 +507,7 @@ function ListingWizard({ mode = "become-host" }) {
             </div>
           </>
         );
+        }
       case "basics":
         return (
           <>
@@ -508,6 +584,18 @@ function ListingWizard({ mode = "become-host" }) {
               <p className="sm:col-span-3 text-center text-sm font-bold text-slate-500">
                 Photo upload placeholder
               </p>
+              <div className="sm:col-span-3 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setError("Photo upload is not available yet. You can continue creating the listing.")}
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-800 shadow-sm transition hover:border-rose-300 hover:bg-rose-50"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="h-5 w-5" aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4" />
+                  </svg>
+                  Add photos
+                </button>
+              </div>
             </div>
           </>
         );

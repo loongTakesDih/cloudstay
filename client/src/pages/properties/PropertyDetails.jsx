@@ -12,8 +12,11 @@ import AppHeader from "../../components/AppHeader";
 import AvailabilityCalendar from "../../components/AvailabilityCalendar";
 import PropertyReviews from "../../components/PropertyReviews";
 import { PropertyLocationMap } from "../../components/PropertyMap";
+import DateRangePicker from "../../components/DateRangePicker.jsx";
+import GuestPicker from "../../components/GuestPicker.jsx";
 import { useAuth } from "../../context/useAuth";
-import { readSavedListings, writeSavedListings } from "../../utils/localState.js";
+import { addNotification, readSavedListings, writeSavedListings } from "../../utils/localState.js";
+import { formatGuests, getGuestTotal } from "../../utils/searchOptions.js";
 
 const splitValues = (value) => {
   if (!value) return [];
@@ -261,12 +264,28 @@ function ReviewBookingModal({ listing, checkIn, checkOut, guests, onClose, onSuc
   const handleConfirm = async () => {
     setIsSubmitting(true);
     try {
-      await createBookingRequest({
+      const result = await createBookingRequest({
         propertyId: listing.id,
         checkIn: checkIn,
         checkOut: checkOut,
-        guestCount: guests
+        adults: guests.adults,
+        children: guests.children,
+        infants: guests.infants,
       });
+      if (listing.hostId && result.bookingId) {
+        addNotification(listing.hostId, {
+          type: "booking-request",
+          audience: "host",
+          direction: "incoming",
+          title: "New booking request",
+          message: `A guest requested ${listing.title} from ${checkIn} to ${checkOut}.`,
+          bookingId: result.bookingId,
+          propertyId: listing.id,
+          propertyTitle: listing.title,
+          status: "Pending",
+          targetPath: `/hosting/requests/${result.bookingId}`,
+        });
+      }
       onSuccess();
     } catch (error) {
       console.error("Booking failed", error.response?.data || error);
@@ -295,7 +314,7 @@ function ReviewBookingModal({ listing, checkIn, checkOut, guests, onClose, onSuc
           
           <div className="flex justify-between pb-2">
             <p className="font-semibold text-slate-700">Guests</p>
-            <p className="font-bold text-slate-900">{guests}</p>
+            <p className="font-bold text-slate-900">{formatGuests(guests)}</p>
           </div>
           
           <div className="flex justify-between pb-2">
@@ -340,7 +359,8 @@ function PropertyBookingCard({ listing, user }) {
   const navigate = useNavigate();
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
-  const [guests, setGuests] = useState(1);
+  const [guests, setGuests] = useState({ adults: 1, children: 0, infants: 0 });
+  const [activePicker, setActivePicker] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
   const [availability, setAvailability] = useState(null);
@@ -378,6 +398,7 @@ function PropertyBookingCard({ listing, user }) {
         range.checkOut.slice(0, 10) > checkIn,
     );
   const isValidDates = baseDatesValid && !overlapsBlockedDates;
+  const guestCountValid = getGuestTotal(guests) <= Number(listing.guestCount || 0);
   
   if (requestSent) {
     return (
@@ -387,7 +408,7 @@ function PropertyBookingCard({ listing, user }) {
           The host has received your request. You will be notified when they accept or decline.
         </p>
         <button 
-          onClick={() => navigate("/dashboard")}
+          onClick={() => navigate("/my-trips")}
           className="mt-4 w-full rounded-full bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"
         >
           View My Trips
@@ -403,40 +424,43 @@ function PropertyBookingCard({ listing, user }) {
           RM {listing.pricePerNight} <span className="text-sm font-semibold text-slate-500">night</span>
         </p>
         
-        <div className="mt-5 grid grid-cols-2 overflow-hidden rounded-2xl border border-slate-200">
-          <label className="border-r border-slate-200 p-3">
-            <span className="text-xs font-bold uppercase text-slate-500">Check in</span>
-            <input 
-              type="date" 
-              value={checkIn}
-              min={minimumDate}
-              max={availableTo}
-              onChange={(e) => setCheckIn(e.target.value)}
-              className="mt-1 w-full text-sm outline-none" 
-            />
-          </label>
-          <label className="p-3">
-            <span className="text-xs font-bold uppercase text-slate-500">Checkout</span>
-            <input 
-              type="date" 
-              value={checkOut}
-              min={checkIn || minimumDate}
-              max={availableTo}
-              onChange={(e) => setCheckOut(e.target.value)}
-              className="mt-1 w-full text-sm outline-none" 
-            />
-          </label>
-          <label className="col-span-2 border-t border-slate-200 p-3">
-            <span className="text-xs font-bold uppercase text-slate-500">Guests</span>
-            <input
-              type="number"
-              min="1"
-              max={listing.guestCount || undefined}
-              value={guests}
-              onChange={(e) => setGuests(parseInt(e.target.value))}
-              className="mt-1 w-full text-sm outline-none"
-            />
-          </label>
+        <div className="relative mt-5 grid grid-cols-2 rounded-2xl border border-slate-200">
+          <button type="button" onClick={() => setActivePicker(activePicker === "dates" ? "" : "dates")} className="border-r border-slate-200 p-3 text-left">
+            <span className="block text-xs font-bold uppercase text-slate-500">Check in</span>
+            <span className="mt-1 block text-sm">{checkIn || "Add date"}</span>
+          </button>
+          <button type="button" onClick={() => setActivePicker(activePicker === "dates" ? "" : "dates")} className="p-3 text-left">
+            <span className="block text-xs font-bold uppercase text-slate-500">Checkout</span>
+            <span className="mt-1 block text-sm">{checkOut || "Add date"}</span>
+          </button>
+          <button type="button" onClick={() => setActivePicker(activePicker === "guests" ? "" : "guests")} className="col-span-2 border-t border-slate-200 p-3 text-left">
+            <span className="block text-xs font-bold uppercase text-slate-500">Guests</span>
+            <span className="mt-1 block text-sm">{formatGuests(guests)}</span>
+          </button>
+          {activePicker === "dates" && (
+            <div className="absolute right-0 top-[calc(100%+0.75rem)] z-20">
+              <DateRangePicker
+                startDate={checkIn}
+                endDate={checkOut}
+                minDate={minimumDate}
+                maxDate={availableTo}
+                onChange={({ startDate, endDate }) => {
+                  setCheckIn(startDate);
+                  setCheckOut(endDate);
+                }}
+              />
+            </div>
+          )}
+          {activePicker === "guests" && (
+            <div className="absolute right-0 top-[calc(100%+0.75rem)] z-20">
+              <GuestPicker
+                value={guests}
+                onChange={setGuests}
+                minAdults={1}
+                maxGuests={listing.guestCount || undefined}
+              />
+            </div>
+          )}
         </div>
 
         {!user ? (
@@ -458,7 +482,7 @@ function PropertyBookingCard({ listing, user }) {
         ) : (
           <button
             type="button"
-            disabled={!listing.isAvailable || !isValidDates}
+            disabled={!listing.isAvailable || !isValidDates || !guestCountValid}
             onClick={() => setShowModal(true)}
             className="mt-5 w-full rounded-full bg-rose-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:bg-rose-300"
           >
@@ -466,11 +490,11 @@ function PropertyBookingCard({ listing, user }) {
           </button>
         )}
 
-        {user && !listing.isOwner && !isValidDates && (
+        {user && !listing.isOwner && (!isValidDates || !guestCountValid) && (
           <p className="mt-3 text-center text-xs font-semibold text-slate-500">
             {overlapsBlockedDates
               ? "Those dates include an unavailable night."
-              : "Select valid check-in and checkout dates to proceed."}
+              : "Select valid dates and a guest count within this listing's limit."}
           </p>
         )}
       </aside>
@@ -501,9 +525,9 @@ function PropertyDetails() {
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [isSaved, setIsSaved] = useState(false);
   const [openingChat, setOpeningChat] = useState(false);
   const [chatError, setChatError] = useState("");
+  const [, setSavedRevision] = useState(0);
 
   useEffect(() => {
     let isActive = true;
@@ -528,19 +552,9 @@ function PropertyDetails() {
     return () => { isActive = false; };
   }, [id]);
 
-  useEffect(() => {
-    const loadId = window.setTimeout(() => {
-      if (!listing || !user) {
-        setIsSaved(false);
-        return;
-      }
-
-      const savedListings = readSavedListings(user.userId);
-      setIsSaved(savedListings.some((saved) => saved.id === listing.id));
-    }, 0);
-
-    return () => window.clearTimeout(loadId);
-  }, [listing, user]);
+  const isSaved =
+    Boolean(listing && user) &&
+    readSavedListings(user?.userId).some((saved) => saved.id === listing?.id);
 
   const handlePublish = async () => setListing(await publishListing(id));
   const handleUnpublish = async () => setListing(await unpublishListing(id));
@@ -592,7 +606,7 @@ function PropertyDetails() {
         ];
 
     writeSavedListings(user.userId, nextSavedListings);
-    setIsSaved(!isSaved);
+    setSavedRevision((revision) => revision + 1);
   };
 
   if (loading) return <main className="flex min-h-screen items-center justify-center bg-[#fffaf7] px-4 text-slate-700">Loading listing...</main>;
@@ -648,16 +662,15 @@ function PropertyDetails() {
         <div className="grid gap-5">
           <HostControlBanner
             listing={listing}
-            onEdit={() => navigate(`/hosting/listings?edit=${listing.id}`)}
+            onEdit={() => navigate(`/hosting/dashboard?tab=listings&edit=${listing.id}`)}
             onPublish={handlePublish}
             onUnpublish={handleUnpublish}
           />
 
           <section>
             <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div>
+              <div className="min-w-0">
                 <h1 className="text-3xl font-bold tracking-normal text-slate-950">{listing.title}</h1>
-                <p className="mt-2 text-sm font-semibold text-slate-600">{listing.location}</p>
               </div>
               <div className="flex flex-wrap gap-2">
                 {listing.isOwner && (
@@ -675,6 +688,9 @@ function PropertyDetails() {
                         : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
                     }`}
                   >
+                    <svg viewBox="0 0 24 24" className={`mr-1 inline h-4 w-4 ${isSaved ? "fill-rose-500 stroke-rose-500" : "fill-none stroke-current"}`} strokeWidth="2">
+                      <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z" />
+                    </svg>
                     {isSaved ? "Saved" : "Save"}
                   </button>
                 )}

@@ -16,6 +16,8 @@ export const getStatusClasses = (status) => {
       return "bg-emerald-50 text-emerald-700";
     case "declined":
       return "bg-rose-50 text-rose-700";
+    case "completed":
+      return "bg-sky-50 text-sky-700";
     default:
       return "bg-amber-50 text-amber-700";
   }
