@@ -51,6 +51,10 @@ namespace server.Migrations
                     b.Property<int>("Infants")
                         .HasColumnType("integer");
 
+                    b.Property<string>("PaymentStatus")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<int>("PropertyId")
                         .HasColumnType("integer");
 
@@ -58,8 +62,17 @@ namespace server.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("StripePaymentIntentId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("StripeSessionId")
+                        .HasColumnType("text");
+
                     b.Property<decimal>("TotalPrice")
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
 

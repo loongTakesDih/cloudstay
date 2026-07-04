@@ -16,11 +16,16 @@ public class BookingsController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly RealtimeNotifier _realtime;
+    private readonly StripePaymentService _stripePaymentService;
 
-    public BookingsController(AppDbContext context, RealtimeNotifier realtime)
+    public BookingsController(
+        AppDbContext context,
+        RealtimeNotifier realtime,
+        StripePaymentService stripePaymentService)
     {
         _context = context;
         _realtime = realtime;
+        _stripePaymentService = stripePaymentService;
     }
 
     [Authorize]
@@ -128,6 +133,64 @@ public class BookingsController : ControllerBase
             bookingId = booking.Id 
         });
     }
+
+    [Authorize]
+    [HttpPost("{id}/create-payment-session")]
+    public async Task<ActionResult> CreatePaymentSession(int id)
+    {
+        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!int.TryParse(userIdString, out int guestId))
+        {
+            return Unauthorized(new { message = "Invalid user session." });
+        }
+
+        var booking = await _context.Bookings
+            .Include(item => item.Property)
+            .FirstOrDefaultAsync(item => item.Id == id);
+
+        if (booking == null)
+        {
+            return NotFound(new { message = "Booking not found." });
+        }
+
+        if (booking.GuestId != guestId)
+        {
+            return Forbid();
+        }
+
+        if (!string.Equals(booking.Status, "Accepted", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { message = "Only accepted bookings can be paid." });
+        }
+
+        if (string.Equals(booking.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new { message = "This booking has already been paid." });
+        }
+
+        if (booking.TotalPrice <= 0)
+        {
+            return BadRequest(new { message = "The booking total must be greater than zero." });
+        }
+
+        var amountInSen = decimal.ToInt64(booking.TotalPrice * 100m);
+        var session = await _stripePaymentService.CreateCheckoutSessionAsync(
+            booking.Id.ToString(),
+            booking.Property!.Title,
+            amountInSen,
+            "myr");
+
+        booking.StripeSessionId = session.Id;
+        booking.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            checkoutUrl = session.Url,
+            sessionId = session.Id
+        });
+    }
+
 [Authorize]
 [HttpGet("{id}")]
 public async Task<ActionResult> GetBooking(int id) 

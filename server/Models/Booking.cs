@@ -46,5 +46,14 @@ public class Booking
     public decimal TotalPrice { get; set; }
 
     [Required]
+    public string PaymentStatus { get; set; } = "Unpaid";
+
+    public string? StripeSessionId { get; set; }
+
+    public string? StripePaymentIntentId { get; set; }
+
+    [Required]
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public DateTime? UpdatedAt { get; set; }
 }
