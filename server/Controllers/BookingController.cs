@@ -483,6 +483,7 @@ public async Task<ActionResult> GetMyBookings()
             b.Children,
             b.Infants,
             b.Status,
+            b.PaymentStatus,
             b.TotalPrice,
             b.CreatedAt,
             Property = b.Property == null

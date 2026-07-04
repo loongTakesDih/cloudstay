@@ -17,6 +17,8 @@ import BookingDetails from "./pages/trips/BookingDetails";
 import HostOnboarding from "./pages/host/HostOnboarding";
 import BookingRequestDetails from "./pages/hosting/BookingRequestDetails";
 import MessagesPage from "./pages/chat/MessagesPage";
+import PaymentCancel from "./pages/payments/PaymentCancel";
+import PaymentSuccess from "./pages/payments/PaymentSuccess";
 import MessageNotifications from "./components/MessageNotifications";
 import RealtimeUpdates from "./components/RealtimeUpdates";
 
@@ -31,6 +33,8 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/explore" element={<Explore />} />
+          <Route path="/payment-success" element={<PaymentSuccess />} />
+          <Route path="/payment-cancel" element={<PaymentCancel />} />
 
           <Route path="/dashboard" element={<Navigate to="/" replace />} />
 

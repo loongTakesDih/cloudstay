@@ -157,6 +157,11 @@ export const checkoutBooking = async (id) => {
   return response.data;
 };
 
+export const createBookingPaymentSession = async (id) => {
+  const response = await api.post(`/bookings/${id}/create-payment-session`);
+  return response.data;
+};
+
 export const getMyBookings = async () => {
   const response = await api.get("/bookings/my-trips");
   return response.data;
