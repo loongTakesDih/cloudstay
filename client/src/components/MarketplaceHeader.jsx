@@ -32,7 +32,11 @@ const MenuIcon = ({ type }) => (
   </span>
 );
 
-function MarketplaceHeader({ centerContent = null, hostingMode = false }) {
+function MarketplaceHeader({
+  actions = null,
+  centerContent = null,
+  hostingMode = false,
+}) {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
   const menuRef = useRef(null);
@@ -109,6 +113,7 @@ function MarketplaceHeader({ centerContent = null, hostingMode = false }) {
         )}
 
         <div className="flex items-center gap-2 sm:gap-3">
+          {actions}
           <button
             type="button"
             onClick={handleHosting}

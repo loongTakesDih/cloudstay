@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE_URL =
+export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:5028/api";
 
 const api = axios.create({
@@ -97,6 +97,11 @@ export const getProperty = async (id) => {
   return response.data;
 };
 
+export const getPropertyAvailability = async (id) => {
+  const response = await api.get(`/properties/${id}/availability`);
+  return response.data;
+};
+
 export const updateListing = async (id, payload) => {
   const response = await api.put(`/properties/${id}`, payload);
   return response.data;
@@ -147,9 +152,66 @@ export const updateBookingStatus = async (id, status) => {
   return response.data;
 };
 
+export const checkoutBooking = async (id) => {
+  const response = await api.post(`/bookings/${id}/checkout`);
+  return response.data;
+};
+
 export const getMyBookings = async () => {
   const response = await api.get("/bookings/my-trips");
   return response.data;
 };
 
+// ==========================================
+// VERIFIED-STAY REVIEWS
+// ==========================================
+export const getPropertyReviews = async (propertyId) => {
+  const response = await api.get(`/reviews/property/${propertyId}`);
+  return response.data;
+};
+
+export const getReviewEligibility = async (bookingId) => {
+  const response = await api.get(`/reviews/eligibility/${bookingId}`);
+  return response.data;
+};
+
+export const createReview = async (payload) => {
+  const response = await api.post("/reviews", payload);
+  return response.data;
+};
+
+export const getMyReviews = async () => {
+  const response = await api.get("/reviews/mine");
+  return response.data;
+};
+
+// ==========================================
+// GUEST & HOST CHAT
+// ==========================================
+export const getConversations = async () => {
+  const response = await api.get("/chat/conversations");
+  return response.data;
+};
+
+export const getOrCreateConversation = async (bookingId) => {
+  const response = await api.post("/chat/conversations", { bookingId });
+  return response.data;
+};
+
+export const getOrCreatePropertyConversation = async (propertyId) => {
+  const response = await api.post("/chat/conversations", { propertyId });
+  return response.data;
+};
+
+export const getConversationMessages = async (conversationId) => {
+  const response = await api.get(`/chat/conversations/${conversationId}/messages`);
+  return response.data;
+};
+
+export const sendConversationMessage = async (conversationId, body) => {
+  const response = await api.post(`/chat/conversations/${conversationId}/messages`, {
+    body,
+  });
+  return response.data;
+};
 export default api;

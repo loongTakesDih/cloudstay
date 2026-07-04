@@ -1,6 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { getBookingById, updateBookingStatus } from "../../api/api.js";
+import {
+  getBookingById,
+  getOrCreateConversation,
+  updateBookingStatus,
+} from "../../api/api.js";
 import AppHeader from "../../components/AppHeader";
 import { useAuth } from "../../context/useAuth";
 import { addNotification } from "../../utils/localState.js";
@@ -21,6 +25,7 @@ function BookingRequestDetails() {
   const { user } = useAuth();
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [openingChat, setOpeningChat] = useState(false);
 
   useEffect(() => {
     if (user !== null && !user.isHost) {
@@ -28,13 +33,30 @@ function BookingRequestDetails() {
     }
   }, [user, navigate]);
 
-  useEffect(() => {
-    if (!id) return;
-    getBookingById(id)
+  const loadBooking = useCallback(() => {
+    if (!id) return Promise.resolve();
+    return getBookingById(id)
       .then((data) => setBooking(data))
       .catch((err) => console.error("Failed to fetch booking", err))
       .finally(() => setLoading(false));
   }, [id]);
+
+  useEffect(() => {
+    loadBooking();
+  }, [loadBooking]);
+
+  useEffect(() => {
+    const refresh = (event) => {
+      if (
+        event.detail?.entity === "booking" &&
+        (!event.detail?.bookingId || Number(event.detail.bookingId) === Number(id))
+      ) {
+        loadBooking();
+      }
+    };
+    window.addEventListener("cloudstay:data-changed", refresh);
+    return () => window.removeEventListener("cloudstay:data-changed", refresh);
+  }, [id, loadBooking]);
 
   const handleStatusChange = async (status) => {
     try {
@@ -65,13 +87,24 @@ function BookingRequestDetails() {
     }
   };
 
+  const handleMessageGuest = async () => {
+    setOpeningChat(true);
+
+    try {
+      const conversation = await getOrCreateConversation(booking.id);
+      navigate(`/messages/${conversation.id}`);
+    } catch (error) {
+      alert(error?.response?.data?.message || "Failed to open the conversation.");
+      setOpeningChat(false);
+    }
+  };
+
   if (loading) return <main className="p-8">Loading details...</main>;
   if (!booking) return <main className="p-8">Booking not found.</main>;
 
   const isPending = booking.status === "Pending";
   const isAccepted = booking.status === "Accepted";
-  const canCompleteCheckout =
-    isAccepted && new Date(booking.checkOut).setHours(0, 0, 0, 0) <= new Date().setHours(0, 0, 0, 0);
+  const isCheckedOut = booking.status === "CheckedOut";
 
   return (
     <div className="min-h-screen bg-[linear-gradient(135deg,#fffaf7_0%,#fff1ec_52%,#f8fafc_100%)] text-slate-950">
@@ -113,6 +146,14 @@ function BookingRequestDetails() {
                 {formatDate(booking.checkIn)} - {formatDate(booking.checkOut)}
               </p>
             </div>
+            <button
+              type="button"
+              onClick={handleMessageGuest}
+              disabled={openingChat}
+              className="w-full rounded-full bg-slate-950 py-3 font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {openingChat ? "Opening chat..." : "Message guest"}
+            </button>
             {isPending ? (
               <div className="flex gap-4 pt-6">
                 <button
@@ -128,22 +169,22 @@ function BookingRequestDetails() {
                   Accept Booking
                 </button>
               </div>
-            ) : canCompleteCheckout ? (
+            ) : isCheckedOut ? (
               <div className="pt-6">
                 <button
-                  onClick={() => handleStatusChange("Completed")}
+                  onClick={() => navigate("/hosting/dashboard?tab=listings")}
                   className="w-full rounded-full bg-emerald-600 py-3 font-bold text-white transition hover:bg-emerald-700"
                 >
-                  Confirm successful checkout
+                  Inspect, prepare, and relist
                 </button>
                 <p className="mt-3 text-center text-xs font-semibold text-slate-500">
-                  This returns the property to the homepage for new reservations.
+                  The property remains offline until you publish it again.
                 </p>
               </div>
             ) : (
               <div className="rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-600">
                 {isAccepted
-                  ? `This stay is accepted. Checkout can be confirmed on ${formatDate(booking.checkOut)}.`
+                  ? "This stay is accepted. The guest can check out from their booking details when they leave."
                   : `This booking is marked as ${booking.status.toLowerCase()} and is part of your booking history.`}
               </div>
             )}

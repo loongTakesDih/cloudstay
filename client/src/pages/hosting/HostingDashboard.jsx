@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   deleteListing,
@@ -9,6 +9,7 @@ import {
   updateListing,
 } from "../../api/api.js";
 import AppHeader from "../../components/AppHeader";
+import { MapPicker } from "../../components/PropertyMap";
 import {
   formatBookingDate,
   getStatusClasses,
@@ -66,6 +67,8 @@ const buildEditForm = (listing) => ({
   postalCode: listing.postalCode || "",
   country: listing.country || "",
   legacyAddress: listing.address || listing.location || "",
+  latitude: listing.latitude ?? null,
+  longitude: listing.longitude ?? null,
   guestCount: listing.guestCount || 1,
   bedroomCount: listing.bedroomCount || 0,
   bedCount: listing.bedCount || 0,
@@ -106,20 +109,22 @@ function BookingCard({ booking, onOpen }) {
   );
 }
 
-function BookingsTab({ bookings, loading, onOpen }) {
-  const [view, setView] = useState("today");
+function BookingsTab({ bookings, loading, onOpen, requestedView }) {
+  const [view, setView] = useState(
+    ["today", "upcoming", "history"].includes(requestedView) ? requestedView : "today",
+  );
   const today = localToday();
   const visibleBookings = useMemo(() => {
     if (view === "history") {
       return bookings.filter((booking) => {
         const status = normalizeBookingStatus(booking.status);
-        return status === "declined" || status === "completed" || toDateValue(booking.checkOut) < today;
+        return status === "declined" || status === "completed" || status === "checkedout" || toDateValue(booking.checkOut) < today;
       });
     }
 
     return bookings.filter((booking) => {
       const status = normalizeBookingStatus(booking.status);
-      if (status === "declined" || status === "completed") return false;
+      if (status === "declined" || status === "completed" || status === "checkedout") return false;
       const checkIn = toDateValue(booking.checkIn);
       return view === "today" ? checkIn === today : checkIn > today;
     });
@@ -267,6 +272,25 @@ function ListingEditorModal({ listing, onClose, onSaved }) {
                 <label><span className="mb-2 block text-sm font-bold">State</span><input required value={form.state} onChange={(event) => update("state", event.target.value)} className="w-full rounded-2xl border border-slate-300 px-4 py-3" /></label>
                 <label><span className="mb-2 block text-sm font-bold">Postal code</span><input value={form.postalCode} onChange={(event) => update("postalCode", event.target.value)} className="w-full rounded-2xl border border-slate-300 px-4 py-3" /></label>
                 <label><span className="mb-2 block text-sm font-bold">Country</span><input required value={form.country} onChange={(event) => update("country", event.target.value)} className="w-full rounded-2xl border border-slate-300 px-4 py-3" /></label>
+                <div className="sm:col-span-2">
+                  <MapPicker
+                    address={
+                      [form.addressLine, form.city, form.postalCode, form.state, form.country]
+                        .filter(Boolean)
+                        .join(", ") || form.legacyAddress
+                    }
+                    latitude={form.latitude}
+                    longitude={form.longitude}
+                    onLocationChange={({ address, latitude, longitude }) =>
+                      setForm((current) => ({
+                        ...current,
+                        legacyAddress: address || current.legacyAddress,
+                        latitude,
+                        longitude,
+                      }))
+                    }
+                  />
+                </div>
               </div>
             )}
 
@@ -463,12 +487,20 @@ function CalendarTab({ bookings }) {
 }
 
 function MessagesTab() {
+  const navigate = useNavigate();
+
   return (
     <section>
-      <div><h1 className="text-3xl font-bold tracking-tight">Messages</h1><p className="mt-2 text-sm text-slate-500">Guest conversations will live here.</p></div>
-      <div className="mt-7 grid min-h-[440px] overflow-hidden rounded-3xl border border-slate-200 bg-white md:grid-cols-[280px_1fr]">
-        <div className="border-b border-slate-200 p-5 md:border-b-0 md:border-r"><div className="rounded-2xl bg-slate-100 px-4 py-3 text-sm text-slate-400">Search messages</div><p className="mt-8 text-center text-sm font-semibold text-slate-400">No conversations yet</p></div>
-        <div className="grid place-items-center p-8 text-center"><div><div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-rose-50 text-2xl">✉</div><h2 className="mt-4 text-xl font-bold">Your host inbox</h2><p className="mt-2 text-sm text-slate-500">Messaging is not available yet. Guest conversations will appear here when it is ready.</p></div></div>
+      <div><h1 className="text-3xl font-bold tracking-tight">Messages</h1><p className="mt-2 text-sm text-slate-500">Open your host inbox to reply to guests.</p></div>
+      <div className="mt-7 grid min-h-[360px] place-items-center rounded-3xl border border-slate-200 bg-white p-8 text-center">
+        <div>
+          <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-rose-50 text-2xl">✉</div>
+          <h2 className="mt-4 text-xl font-bold">Your host inbox</h2>
+          <p className="mt-2 text-sm text-slate-500">Booking conversations and unread messages are ready in your inbox.</p>
+          <button type="button" onClick={() => navigate("/messages")} className="mt-6 rounded-full bg-rose-500 px-6 py-3 text-sm font-bold text-white">
+            Open messages
+          </button>
+        </div>
       </div>
     </section>
   );
@@ -484,7 +516,7 @@ function HostingDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  const loadHostingData = useCallback(() => {
     Promise.allSettled([getBookingRequests(), getMyListings()])
       .then(([bookingResult, listingResult]) => {
         if (bookingResult.status === "fulfilled") {
@@ -501,6 +533,20 @@ function HostingDashboard() {
       })
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    loadHostingData();
+  }, [loadHostingData]);
+
+  useEffect(() => {
+    const refresh = (event) => {
+      if (["booking", "property"].includes(event.detail?.entity)) {
+        loadHostingData();
+      }
+    };
+    window.addEventListener("cloudstay:data-changed", refresh);
+    return () => window.removeEventListener("cloudstay:data-changed", refresh);
+  }, [loadHostingData]);
 
   const updateLocalListing = (updated, deletedId) => {
     if (deletedId) {
@@ -530,10 +576,20 @@ function HostingDashboard() {
 
   return (
     <div className="min-h-screen bg-[#f7f7f7] text-slate-950">
-      <AppHeader centerContent={hostingNavigation} hostingMode />
+      <AppHeader
+        centerContent={hostingNavigation}
+        hostingMode
+      />
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         {error && <p className="mb-6 rounded-2xl bg-rose-50 p-4 text-sm font-semibold text-rose-700">{error}</p>}
-        {activeTab === "bookings" && <BookingsTab bookings={bookings} loading={loading} onOpen={(booking) => navigate(`/hosting/requests/${booking.id}`)} />}
+        {activeTab === "bookings" && (
+          <BookingsTab
+            bookings={bookings}
+            loading={loading}
+            onOpen={(booking) => navigate(`/hosting/requests/${booking.id}`)}
+            requestedView={searchParams.get("view")}
+          />
+        )}
         {activeTab === "listings" && (
           <ListingsTab
             listings={listings}

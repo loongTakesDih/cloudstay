@@ -16,11 +16,16 @@ import PropertyDetails from "./pages/properties/PropertyDetails";
 import BookingDetails from "./pages/trips/BookingDetails";
 import HostOnboarding from "./pages/host/HostOnboarding";
 import BookingRequestDetails from "./pages/hosting/BookingRequestDetails";
+import MessagesPage from "./pages/chat/MessagesPage";
+import MessageNotifications from "./components/MessageNotifications";
+import RealtimeUpdates from "./components/RealtimeUpdates";
 
 function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
+        <MessageNotifications />
+        <RealtimeUpdates />
         <Routes>
           <Route path="/" element={<Explore />} />
           <Route path="/login" element={<Login />} />
@@ -31,6 +36,14 @@ function App() {
 
           <Route
             path="/profile"
+            element={
+              <ProtectedRoute>
+                <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile/:section"
             element={
               <ProtectedRoute>
                 <ProfilePage />
@@ -84,6 +97,24 @@ function App() {
             element={
               <ProtectedRoute>
                 <BookingDetails />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/messages"
+            element={
+              <ProtectedRoute>
+                <MessagesPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/messages/:conversationId"
+            element={
+              <ProtectedRoute>
+                <MessagesPage />
               </ProtectedRoute>
             }
           />

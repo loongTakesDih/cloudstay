@@ -101,7 +101,8 @@ public class AuthService
             Username = user.Username,
             Email = user.Email,
             Role = user.Role,
-            IsHost = user.IsHost
+            IsHost = user.IsHost,
+            CreatedAt = user.CreatedAt
         };
     }
 }

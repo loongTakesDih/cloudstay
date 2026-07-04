@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using server.Data;
 using server.DTOs.Bookings;
 using server.Models;
+using server.Services;
 using System.Security.Claims;
 
 
@@ -14,10 +15,12 @@ namespace server.Controllers;
 public class BookingsController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly RealtimeNotifier _realtime;
 
-    public BookingsController(AppDbContext context)
+    public BookingsController(AppDbContext context, RealtimeNotifier realtime)
     {
         _context = context;
+        _realtime = realtime;
     }
 
     [Authorize]
@@ -109,6 +112,15 @@ public class BookingsController : ControllerBase
 
         _context.Bookings.Add(booking);
         await _context.SaveChangesAsync();
+        await _realtime.NotifyUsersAsync(
+            [guestId, property.HostId],
+            new
+            {
+                Entity = "booking",
+                Action = "created",
+                BookingId = booking.Id,
+                booking.PropertyId
+            });
 
         return Ok(new 
         { 
@@ -250,7 +262,85 @@ public async Task<ActionResult> UpdateStatus(int id, [FromBody] StatusDto status
         _ => booking.Status
     };
     await _context.SaveChangesAsync();
+    await _realtime.NotifyUsersAsync(
+        [booking.GuestId, userId],
+        new
+        {
+            Entity = "booking",
+            Action = "status-changed",
+            BookingId = booking.Id,
+            booking.PropertyId,
+            booking.Status
+        });
+    if (normalizedNextStatus == "accepted")
+    {
+        await _realtime.NotifyAllAsync(new
+        {
+            Entity = "property",
+            Action = "availability-changed",
+            booking.PropertyId
+        });
+    }
     return Ok();
+}
+
+[Authorize]
+[HttpPost("{id}/checkout")]
+public async Task<ActionResult> Checkout(int id)
+{
+    var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+    if (!int.TryParse(userIdString, out int guestId))
+    {
+        return Unauthorized(new { message = "Invalid user session." });
+    }
+
+    var booking = await _context.Bookings
+        .Include(item => item.Property)
+        .FirstOrDefaultAsync(item => item.Id == id && item.GuestId == guestId);
+
+    if (booking == null)
+    {
+        return NotFound(new { message = "Booking not found." });
+    }
+
+    if (!string.Equals(booking.Status, "Accepted", StringComparison.OrdinalIgnoreCase))
+    {
+        return BadRequest(new { message = "Only an accepted stay can be checked out." });
+    }
+
+    booking.Status = "CheckedOut";
+    if (booking.Property != null)
+    {
+        booking.Property.IsAvailable = false;
+        booking.Property.IsListed = false;
+        booking.Property.UpdatedAt = DateTime.UtcNow;
+    }
+
+    await _context.SaveChangesAsync();
+    await _realtime.NotifyUsersAsync(
+        booking.Property == null
+            ? [guestId]
+            : [guestId, booking.Property.HostId],
+        new
+        {
+            Entity = "booking",
+            Action = "checked-out",
+            BookingId = booking.Id,
+            booking.PropertyId,
+            booking.Status
+        });
+    await _realtime.NotifyAllAsync(new
+    {
+        Entity = "property",
+        Action = "unlisted-after-checkout",
+        booking.PropertyId
+    });
+    return Ok(new
+    {
+        booking.Id,
+        booking.Status,
+        message = "You have checked out. The host will inspect and relist the property when it is ready."
+    });
 }
 
     [Authorize]
@@ -338,7 +428,16 @@ public async Task<ActionResult> GetMyBookings()
                 {
                     b.Property.Id,
                     b.Property.Title,
-                    b.Property.Location
+                    b.Property.Location,
+                    b.Property.HostId,
+                    Host = b.Property.Host == null
+                        ? null
+                        : new
+                        {
+                            b.Property.Host.Id,
+                            b.Property.Host.Username,
+                            b.Property.Host.CreatedAt
+                        }
                 }
         })
         .ToListAsync();

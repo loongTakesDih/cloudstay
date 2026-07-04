@@ -9,6 +9,7 @@ import {
   uploadPropertyImage,
 } from "../../api/api";
 import AppHeader from "../../components/AppHeader";
+import { MapPicker } from "../../components/PropertyMap";
 import { useAuth } from "../../context/useAuth";
 import { popularCities } from "../../utils/searchOptions.js";
 
@@ -52,6 +53,8 @@ const buildEditForm = (listing) => ({
   propertyCategory: listing.propertyCategory || "Other",
   placeType: listing.placeType || "Entire place",
   address: listing.address || listing.location || "",
+  latitude: listing.latitude ?? null,
+  longitude: listing.longitude ?? null,
   addressLine: listing.addressLine || listing.address || listing.location || "",
   city: listing.city || "",
   state: listing.state || "",
@@ -95,7 +98,7 @@ const tabMeta = {
 function ViewListing() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { logout, user } = useAuth();
+  const { user } = useAuth();
   const [listings, setListings] = useState([]);
   const [activeTab, setActiveTab] = useState("unlisted");
   const [editingId, setEditingId] = useState(null);
@@ -338,12 +341,6 @@ function ViewListing() {
             >
               Hosting Dashboard
             </button>
-            <button
-              onClick={logout}
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
-            >
-              Logout
-            </button>
           </>
         }
       />
@@ -542,6 +539,22 @@ function ViewListing() {
                 placeholder="Country"
                 required
               />
+              <div className="md:col-span-2">
+                <MapPicker
+                  address={editForm.address}
+                  latitude={editForm.latitude}
+                  longitude={editForm.longitude}
+                  onLocationChange={({ address, latitude, longitude }) =>
+                    setEditForm((currentForm) => ({
+                      ...currentForm,
+                      address: address || currentForm.address,
+                      location: address || currentForm.location,
+                      latitude,
+                      longitude,
+                    }))
+                  }
+                />
+              </div>
               <input
                 type="date"
                 value={editForm.availableFrom}

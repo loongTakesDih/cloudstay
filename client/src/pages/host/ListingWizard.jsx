@@ -7,6 +7,7 @@ import CounterControl from "./CounterControl";
 import PriceSelector from "./PriceSelector";
 import WizardShell from "./WizardShell";
 import WizardVisual from "./WizardVisual";
+import { MapPicker } from "../../components/PropertyMap";
 import { popularCities } from "../../utils/searchOptions.js";
 
 const propertyCategories = [
@@ -83,6 +84,8 @@ const initialForm = {
   postalCode: "",
   country: "Malaysia",
   address: "",
+  latitude: null,
+  longitude: null,
   guestCount: 1,
   bedroomCount: 0,
   bedCount: 0,
@@ -230,7 +233,16 @@ function ListingWizard({ mode = "become-host" }) {
       case "placeType":
         return hasText(form.placeType);
       case "address":
-        return hasText(form.addressLine) && hasText(form.city) && hasText(form.state) && hasText(form.country);
+        return (
+          hasText(form.addressLine) &&
+          hasText(form.city) &&
+          hasText(form.state) &&
+          hasText(form.country) &&
+          form.latitude != null &&
+          form.longitude != null &&
+          Number.isFinite(Number(form.latitude)) &&
+          Number.isFinite(Number(form.longitude))
+        );
       case "basics":
         return (
           form.guestCount >= 1 &&
@@ -272,6 +284,15 @@ function ListingWizard({ mode = "become-host" }) {
     }));
   };
 
+  const updateMapLocation = ({ address, latitude, longitude }) => {
+    setForm((currentForm) => ({
+      ...currentForm,
+      address: address || currentForm.address,
+      latitude,
+      longitude,
+    }));
+  };
+
   const buildPayload = () => ({
     title: form.title,
     description: form.description,
@@ -280,6 +301,8 @@ function ListingWizard({ mode = "become-host" }) {
     propertyCategory: form.propertyCategory,
     placeType: form.placeType,
     address: form.address,
+    latitude: form.latitude,
+    longitude: form.longitude,
     addressLine: form.addressLine,
     city: form.city,
     state: form.state,
@@ -476,10 +499,11 @@ function ListingWizard({ mode = "become-host" }) {
             <ScreenHeading
               kicker="Location"
               title="Where is your place located?"
-              helper="Add a structured address so guests can find and filter your listing accurately."
+              helper="Add a structured address, then click the map to pin the exact location guests will see."
             />
-            <div className="grid gap-4 rounded-3xl border border-white/80 bg-white/70 p-5 shadow-xl shadow-rose-100/40 sm:grid-cols-2">
-              <label className="sm:col-span-2">
+            <div className="space-y-4">
+              <div className="grid gap-4 rounded-3xl border border-white/80 bg-white/70 p-5 shadow-xl shadow-rose-100/40 sm:grid-cols-2">
+                <label className="sm:col-span-2">
                 <span className="mb-2 block text-sm font-bold text-slate-700">Unit and street address</span>
                 <input
                   type="text"
@@ -533,7 +557,14 @@ function ListingWizard({ mode = "become-host" }) {
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
                   placeholder="Malaysia"
                 />
-              </label>
+                </label>
+              </div>
+              <MapPicker
+                address={form.address}
+                latitude={form.latitude}
+                longitude={form.longitude}
+                onLocationChange={updateMapLocation}
+              />
             </div>
           </>
         );

@@ -29,4 +29,3 @@ export const formatGuests = (guests, emptyLabel = "Add guests") => {
   if (infants > 0) parts.push(`${infants} infant${infants === 1 ? "" : "s"}`);
   return parts.join(", ");
 };
-

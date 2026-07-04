@@ -1,12 +1,17 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   getProperty,
+  getPropertyAvailability,
+  getOrCreatePropertyConversation,
   publishListing,
   unpublishListing,
   createBookingRequest 
 } from "../../api/api";
 import AppHeader from "../../components/AppHeader";
+import AvailabilityCalendar from "../../components/AvailabilityCalendar";
+import PropertyReviews from "../../components/PropertyReviews";
+import { PropertyLocationMap } from "../../components/PropertyMap";
 import DateRangePicker from "../../components/DateRangePicker.jsx";
 import GuestPicker from "../../components/GuestPicker.jsx";
 import { useAuth } from "../../context/useAuth";
@@ -28,13 +33,6 @@ const formatDate = (value) => {
     month: "short",
     year: "numeric",
   }).format(date);
-};
-
-const getTodayValue = () => {
-  const date = new Date();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${date.getFullYear()}-${month}-${day}`;
 };
 
 const formatMemberSince = (value) => {
@@ -235,8 +233,12 @@ function LocationSection({ listing }) {
       <p className="mt-3 text-sm font-semibold text-slate-600">
         {listing.address || listing.location || "Location coming soon"}
       </p>
-      <div className="mt-5 flex h-48 items-center justify-center rounded-3xl bg-gradient-to-br from-rose-50 via-white to-amber-50 text-sm font-bold text-slate-400">
-        Map preview coming soon
+      <div className="mt-5">
+        <PropertyLocationMap
+          address={listing.address || listing.location}
+          latitude={listing.latitude}
+          longitude={listing.longitude}
+        />
       </div>
     </section>
   );
@@ -285,6 +287,7 @@ function NotFoundState({ onBack }) {
 
 // --- REVIEW BOOKING MODAL ---
 function ReviewBookingModal({ listing, checkIn, checkOut, guests, onClose, onSuccess }) {
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const start = new Date(checkIn);
@@ -304,6 +307,12 @@ function ReviewBookingModal({ listing, checkIn, checkOut, guests, onClose, onSuc
         infants: guests.infants,
       });
       if (listing.hostId && result.bookingId) {
+        const today = new Date();
+        const requestedCheckIn = new Date(`${checkIn}T00:00:00`);
+        const isToday =
+          requestedCheckIn.getFullYear() === today.getFullYear() &&
+          requestedCheckIn.getMonth() === today.getMonth() &&
+          requestedCheckIn.getDate() === today.getDate();
         addNotification(listing.hostId, {
           type: "booking-request",
           audience: "host",
@@ -314,7 +323,21 @@ function ReviewBookingModal({ listing, checkIn, checkOut, guests, onClose, onSuc
           propertyId: listing.id,
           propertyTitle: listing.title,
           status: "Pending",
-          targetPath: `/hosting/requests/${result.bookingId}`,
+          targetPath: `/hosting/dashboard?tab=bookings&view=${isToday ? "today" : "upcoming"}`,
+        });
+      }
+      if (user?.userId && result.bookingId) {
+        addNotification(user.userId, {
+          type: "booking-request",
+          audience: "guest",
+          direction: "outgoing",
+          title: "Booking request sent",
+          message: `Your request for ${listing.title} from ${checkIn} to ${checkOut} was sent to the host.`,
+          bookingId: result.bookingId,
+          propertyId: listing.id,
+          propertyTitle: listing.title,
+          status: "Pending",
+          targetPath: `/trips/${result.bookingId}`,
         });
       }
       onSuccess();
@@ -394,12 +417,41 @@ function PropertyBookingCard({ listing, user }) {
   const [activePicker, setActivePicker] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [requestSent, setRequestSent] = useState(false);
+  const [availability, setAvailability] = useState(null);
 
-  const isValidDates = checkIn && checkOut && new Date(checkIn) < new Date(checkOut);
-  const today = getTodayValue();
+  useEffect(() => {
+    let active = true;
+    const loadId = window.setTimeout(async () => {
+      try {
+        const data = await getPropertyAvailability(listing.id);
+        if (active) setAvailability(data);
+      } catch {
+        if (active) setAvailability(null);
+      }
+    }, 0);
+
+    return () => {
+      active = false;
+      window.clearTimeout(loadId);
+    };
+  }, [listing.id]);
+
+  const today = new Date();
+  const todayValue = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const availableFrom = listing.availableFrom?.slice(0, 10);
   const availableTo = listing.availableTo?.slice(0, 10);
-  const minimumDate = availableFrom && availableFrom > today ? availableFrom : today;
+  const minimumDate =
+    availableFrom && availableFrom > todayValue ? availableFrom : todayValue;
+  const baseDatesValid =
+    checkIn && checkOut && new Date(checkIn) < new Date(checkOut);
+  const overlapsBlockedDates =
+    baseDatesValid &&
+    availability?.blockedRanges?.some(
+      (range) =>
+        range.checkIn.slice(0, 10) < checkOut &&
+        range.checkOut.slice(0, 10) > checkIn,
+    );
+  const isValidDates = baseDatesValid && !overlapsBlockedDates;
   const guestCountValid = getGuestTotal(guests) <= Number(listing.guestCount || 0);
   
   if (requestSent) {
@@ -494,7 +546,9 @@ function PropertyBookingCard({ listing, user }) {
 
         {user && !listing.isOwner && (!isValidDates || !guestCountValid) && (
           <p className="mt-3 text-center text-xs font-semibold text-slate-500">
-            Select valid dates and a guest count within this listing's limit.
+            {overlapsBlockedDates
+              ? "Those dates include an unavailable night."
+              : "Select valid dates and a guest count within this listing's limit."}
           </p>
         )}
       </aside>
@@ -521,34 +575,50 @@ function PropertyBookingCard({ listing, user }) {
 function PropertyDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const [listing, setListing] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [openingChat, setOpeningChat] = useState(false);
+  const [chatError, setChatError] = useState("");
   const [, setSavedRevision] = useState(0);
 
-  useEffect(() => {
-    let isActive = true;
+  const loadListing = useCallback((isActive = () => true) =>
     getProperty(id)
       .then((data) => {
-        if (isActive) {
+        if (isActive()) {
           setListing(data);
           setError("");
         }
       })
       .catch((err) => {
-        if (isActive) {
+        if (isActive()) {
           const status = err.response?.status;
           setError(status === 404 || status === 403 ? "unavailable" : "error");
         }
       })
       .finally(() => {
-        if (isActive) {
+        if (isActive()) {
           setLoading(false);
         }
-      });
-    return () => { isActive = false; };
-  }, [id]);
+      }), [id]);
+
+  useEffect(() => {
+    let active = true;
+    loadListing(() => active);
+    return () => { active = false; };
+  }, [loadListing]);
+
+  useEffect(() => {
+    const refresh = (event) => {
+      const affectsListing =
+        ["booking", "property"].includes(event.detail?.entity) &&
+        (!event.detail?.propertyId || Number(event.detail.propertyId) === Number(id));
+      if (affectsListing) loadListing();
+    };
+    window.addEventListener("cloudstay:data-changed", refresh);
+    return () => window.removeEventListener("cloudstay:data-changed", refresh);
+  }, [id, loadListing]);
 
   const isSaved =
     Boolean(listing && user) &&
@@ -556,6 +626,28 @@ function PropertyDetails() {
 
   const handlePublish = async () => setListing(await publishListing(id));
   const handleUnpublish = async () => setListing(await unpublishListing(id));
+
+  const handleMessageHost = async () => {
+    if (!user) {
+      navigate(`/login?returnTo=${encodeURIComponent(`/properties/${listing?.id || id}`)}`);
+      return;
+    }
+
+    if (!listing || listing.isOwner || openingChat) return;
+
+    setOpeningChat(true);
+    setChatError("");
+
+    try {
+      const conversation = await getOrCreatePropertyConversation(listing.id);
+      navigate(`/messages/${conversation.id}`);
+    } catch (requestError) {
+      setChatError(
+        requestError?.response?.data?.message || "Could not open the conversation.",
+      );
+      setOpeningChat(false);
+    }
+  };
 
   const handleToggleSave = () => {
     if (!user) {
@@ -594,43 +686,15 @@ function PropertyDetails() {
         title="CloudStay"
         subtitle={listing.isOwner ? "Host preview" : "Listing details"}
         actions={
-          <>
-            {!listing.isOwner && (
-              <button
-                type="button"
-                onClick={() => navigate("/explore")}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-slate-300"
-              >
-                Back to Explore
-              </button>
-            )}
-            {user && (
-              <button
-                type="button"
-                onClick={() => navigate(user.isHost ? "/hosting/listings" : "/dashboard")}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-slate-300"
-              >
-                {user.isHost ? "My listings" : "Back to Dashboard"}
-              </button>
-            )}
-            {user ? (
-              <button
-                type="button"
-                onClick={logout}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-slate-300"
-              >
-                Logout
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => navigate("/login")}
-                className="rounded-full bg-rose-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-rose-600"
-              >
-                Login
-              </button>
-            )}
-          </>
+          !listing.isOwner ? (
+            <button
+              type="button"
+              onClick={() => navigate("/explore")}
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-slate-300"
+            >
+              Back to Explore
+            </button>
+          ) : null
         }
       />
 
@@ -693,26 +757,38 @@ function PropertyDetails() {
 
               <PropertyAmenities listing={listing} />
 
-              <section className="border-b border-slate-200 py-6">
-                <h2 className="text-xl font-bold text-slate-950">Availability</h2>
-                <p className="mt-3 text-sm font-semibold text-slate-600">
-                  Available from {formatDate(listing.availableFrom)} to {formatDate(listing.availableTo)}.
-                </p>
-                <p className="mt-2 text-sm font-semibold text-slate-500">
-                  {listing.isAvailable ? "Currently available to book." : "Currently unavailable."}
-                </p>
-              </section>
+              <AvailabilityCalendar propertyId={listing.id} />
 
               <LocationSection listing={listing} />
+
+              <PropertyReviews propertyId={listing.id} />
 
               <section className="border-b border-slate-200 py-6">
                 <h2 className="text-xl font-bold text-slate-950">Meet your host</h2>
                 <p className="mt-3 text-sm font-semibold text-slate-600">
                   {listing.host?.username || "CloudStay host"} · CloudStay Host · Member since {formatMemberSince(listing.host?.createdAt)}
                 </p>
-                <button className="mt-4 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700">
-                  Message Host
-                </button>
+                {!listing.isOwner && (
+                  <>
+                    {chatError && (
+                      <p role="alert" className="mt-3 text-sm font-semibold text-rose-600">
+                        {chatError}
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleMessageHost}
+                      disabled={openingChat}
+                      className="mt-4 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                    >
+                      {!user
+                        ? "Log in to message host"
+                        : openingChat
+                          ? "Opening chat..."
+                          : "Message host"}
+                    </button>
+                  </>
+                )}
               </section>
 
               <ThingsToKnow listing={listing} />

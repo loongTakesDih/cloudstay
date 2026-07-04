@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using server.Data;
 using server.DTOs.Properties;
 using server.Models;
+using server.Services;
 using System.Security.Claims;
 
 namespace server.Controllers;
@@ -13,10 +14,12 @@ namespace server.Controllers;
 public class PropertiesController : ControllerBase
 {
     private readonly AppDbContext _context;
+    private readonly RealtimeNotifier _realtime;
 
-    public PropertiesController(AppDbContext context)
+    public PropertiesController(AppDbContext context, RealtimeNotifier realtime)
     {
         _context = context;
+        _realtime = realtime;
     }
     
     [HttpGet]
@@ -62,6 +65,47 @@ public class PropertiesController : ControllerBase
         // Security block successfully removed from here!
 
         return Ok(await MapPropertyAsync(property, GetCurrentUserId()));
+    }
+
+    [HttpGet("{id:int}/availability")]
+    public async Task<ActionResult> GetPropertyAvailability(int id)
+    {
+        var property = await _context.Properties
+            .Where(item => item.Id == id)
+            .Select(item => new
+            {
+                item.Id,
+                item.AvailableFrom,
+                item.AvailableTo,
+                item.IsAvailable
+            })
+            .FirstOrDefaultAsync();
+
+        if (property == null)
+        {
+            return NotFound(new { message = "Listing not found." });
+        }
+
+        var blockedRanges = await _context.Bookings
+            .Where(booking =>
+                booking.PropertyId == id &&
+                booking.Status.ToLower() == "accepted")
+            .OrderBy(booking => booking.CheckIn)
+            .Select(booking => new
+            {
+                booking.CheckIn,
+                booking.CheckOut
+            })
+            .ToListAsync();
+
+        return Ok(new
+        {
+            property.Id,
+            property.AvailableFrom,
+            property.AvailableTo,
+            property.IsAvailable,
+            BlockedRanges = blockedRanges
+        });
     }
 
     [Authorize]
@@ -112,6 +156,12 @@ public class PropertiesController : ControllerBase
 
         AddPropertyImages(property.Id, request);
         await _context.SaveChangesAsync();
+        await _realtime.NotifyAllAsync(new
+        {
+            Entity = "property",
+            Action = "created",
+            PropertyId = property.Id
+        });
 
         return Created($"/api/properties/{property.Id}", await MapPropertyAsync(property, userId.Value));
     }
@@ -183,6 +233,12 @@ public class PropertiesController : ControllerBase
         ApplyPropertyChanges(property, request);
         ReplacePropertyImages(property.Id, request);
         await _context.SaveChangesAsync();
+        await _realtime.NotifyAllAsync(new
+        {
+            Entity = "property",
+            Action = "updated",
+            PropertyId = property.Id
+        });
 
         return Ok(await MapPropertyAsync(property, userId.Value));
     }
@@ -248,6 +304,12 @@ public class PropertiesController : ControllerBase
         _context.PropertyImages.RemoveRange(images);
         _context.Properties.Remove(property);
         await _context.SaveChangesAsync();
+        await _realtime.NotifyAllAsync(new
+        {
+            Entity = "property",
+            Action = "deleted",
+            PropertyId = property.Id
+        });
 
         return NoContent();
     }
@@ -285,10 +347,25 @@ public class PropertiesController : ControllerBase
         {
             if (!property.IsAvailable)
             {
-                return BadRequest(new
+                var checkedOutBooking = await _context.Bookings
+                    .Where(booking =>
+                        booking.PropertyId == property.Id &&
+                        booking.Status == "CheckedOut")
+                    .OrderByDescending(booking => booking.CreatedAt)
+                    .FirstOrDefaultAsync();
+
+                if (checkedOutBooking == null)
                 {
-                    message = "Mark this listing as available before publishing it."
-                });
+                    return BadRequest(new
+                    {
+                        message = "Mark this listing as available before publishing it."
+                    });
+                }
+
+                // Publishing after checkout is the host's confirmation that inspection
+                // and preparation are complete.
+                checkedOutBooking.Status = "Completed";
+                property.IsAvailable = true;
             }
 
             if (property.AvailableFrom == null || property.AvailableTo == null)
@@ -311,6 +388,12 @@ public class PropertiesController : ControllerBase
         property.IsListed = isListed;
         property.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+        await _realtime.NotifyAllAsync(new
+        {
+            Entity = "property",
+            Action = isListed ? "published" : "unpublished",
+            PropertyId = property.Id
+        });
 
         return Ok(await MapPropertyAsync(property, userId.Value));
     }
@@ -338,6 +421,17 @@ public class PropertiesController : ControllerBase
             string.IsNullOrWhiteSpace(request.Location))
         {
             return "Address or location is required.";
+        }
+
+        if (request.Latitude.HasValue != request.Longitude.HasValue)
+        {
+            return "Select a complete location on the map.";
+        }
+
+        if (request.Latitude is < -90 or > 90 ||
+            request.Longitude is < -180 or > 180)
+        {
+            return "The selected map location is invalid.";
         }
 
         var hasAnyStructuredLocation =
@@ -429,6 +523,8 @@ public class PropertiesController : ControllerBase
         property.PropertyCategory = EmptyToNull(request.PropertyCategory ?? string.Empty);
         property.PlaceType = EmptyToNull(request.PlaceType ?? string.Empty);
         property.Address = string.IsNullOrWhiteSpace(address) ? property.Location : address;
+        property.Latitude = request.Latitude;
+        property.Longitude = request.Longitude;
         property.AddressLine = EmptyToNull(request.AddressLine ?? string.Empty);
         property.City = EmptyToNull(request.City ?? string.Empty);
         property.State = EmptyToNull(request.State ?? string.Empty);
@@ -535,6 +631,8 @@ internal static PropertyResponseDto MapProperty(
             PropertyCategory = property.PropertyCategory,
             PlaceType = property.PlaceType,
             Address = property.Address,
+            Latitude = property.Latitude,
+            Longitude = property.Longitude,
             AddressLine = property.AddressLine,
             City = property.City,
             State = property.State,

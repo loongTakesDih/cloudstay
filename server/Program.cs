@@ -3,6 +3,7 @@ using Amazon.S3;
 using Microsoft.EntityFrameworkCore;
 using server.Data;
 using server.Services;
+using server.Hubs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -18,6 +19,7 @@ builder.Services.AddScoped<StripePaymentService>();
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<S3ImageUploadService>();
+builder.Services.AddScoped<RealtimeNotifier>();
 builder.Services.AddSingleton<IAmazonS3>((serviceProvider) =>
 {
     var configuration = serviceProvider.GetRequiredService<IConfiguration>();
@@ -28,6 +30,7 @@ builder.Services.AddSingleton<IAmazonS3>((serviceProvider) =>
 
 // Add services to the container.
 builder.Services.AddControllers();
+builder.Services.AddSignalR();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(
@@ -58,6 +61,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 Encoding.UTF8.GetBytes(jwtKey)
             )
         };
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    context.HttpContext.Request.Path.StartsWithSegments("/hubs/cloudstay"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddCors(options =>
@@ -69,7 +86,8 @@ builder.Services.AddCors(options =>
                 "https://cloudstay-lemon.vercel.app"
               )
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .AllowCredentials();
     });
 });
 
@@ -84,6 +102,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<CloudStayHub>("/hubs/cloudstay");
 
 app.MapGet("/api/health", () =>
 {
