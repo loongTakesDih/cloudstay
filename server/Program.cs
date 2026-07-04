@@ -13,6 +13,8 @@ builder.Services.Configure<StripeSettings>(
     builder.Configuration.GetSection("Stripe")
 );
 
+builder.Services.AddScoped<StripePaymentService>();
+
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<S3ImageUploadService>();
