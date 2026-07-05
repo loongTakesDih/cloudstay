@@ -83,7 +83,7 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
                 "http://localhost:5173",
-                "https://cloudstay-lemon.vercel.app"
+                "https://cloudstay.vercel.app"
               )
               .AllowAnyHeader()
               .AllowAnyMethod()
