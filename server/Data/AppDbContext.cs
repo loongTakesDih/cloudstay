@@ -35,6 +35,15 @@ public class AppDbContext : DbContext
             .HasForeignKey(b => b.PropertyId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<User>()
+            .HasIndex(user => user.Email)
+            .IsUnique();
+
+        modelBuilder.Entity<User>()
+            .HasIndex(user => user.GoogleSubjectId)
+            .IsUnique()
+            .HasFilter("\"GoogleSubjectId\" IS NOT NULL");
+
         modelBuilder.Entity<Conversation>()
             .HasIndex(conversation => conversation.BookingId)
             .IsUnique()
