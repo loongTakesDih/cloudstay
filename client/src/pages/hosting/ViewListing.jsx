@@ -11,7 +11,11 @@ import {
 import AppHeader from "../../components/AppHeader";
 import { MapPicker } from "../../components/PropertyMap";
 import { useAuth } from "../../context/useAuth";
-import { popularCities, popularCityLocations } from "../../utils/searchOptions.js";
+import {
+  popularCities,
+  popularCityLocations,
+  validateMalaysiaPostalCode,
+} from "../../utils/searchOptions.js";
 
 const splitValues = (value) => {
   if (!value) return [];
@@ -107,6 +111,9 @@ function ViewListing() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const editPostalCodeError = editForm
+    ? validateMalaysiaPostalCode(editForm.postalCode, editForm.state)
+    : "";
 
   const filteredListings = useMemo(
     () =>
@@ -311,6 +318,12 @@ function ViewListing() {
 
     setSaving(true);
     setError("");
+
+    if (editPostalCodeError) {
+      setSaving(false);
+      setError(editPostalCodeError);
+      return;
+    }
 
     try {
       const updatedListing = await updateListing(editingId, {
@@ -538,11 +551,18 @@ function ViewListing() {
               />
               <input
                 type="text"
+                inputMode="numeric"
+                maxLength="5"
                 value={editForm.postalCode}
                 onChange={(event) => updateEditLocation("postalCode", event.target.value)}
                 className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
                 placeholder="Postal code"
               />
+              {editPostalCodeError && (
+                <p className="-mt-2 text-xs font-bold text-red-600 md:col-span-2">
+                  {editPostalCodeError}
+                </p>
+              )}
               <input
                 type="text"
                 value={editForm.country}
@@ -610,7 +630,7 @@ function ViewListing() {
               </button>
               <button
                 type="submit"
-                disabled={saving || photoUploading}
+                disabled={saving || photoUploading || Boolean(editPostalCodeError)}
                 className="rounded-full bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-200 transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
               >
                 {saving || photoUploading ? "Saving..." : "Save changes"}

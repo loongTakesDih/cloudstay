@@ -60,6 +60,60 @@ export const popularCityLocations = {
   },
 };
 
+const postcodeStateRanges = {
+  johor: [[79, 86]],
+  kedah: [[5, 9]],
+  kelantan: [[15, 18]],
+  "kuala lumpur": [[50, 60]],
+  labuan: [[87, 87]],
+  melaka: [[75, 78]],
+  "negeri sembilan": [[70, 73]],
+  pahang: [[25, 28], [39, 39], [49, 49], [69, 69]],
+  penang: [[10, 14]],
+  perak: [[30, 36]],
+  perlis: [[1, 2]],
+  putrajaya: [[62, 62]],
+  sabah: [[88, 91]],
+  sarawak: [[93, 98]],
+  selangor: [[40, 48], [63, 64], [68, 68]],
+  terengganu: [[20, 24]],
+};
+
+const normalizeStateName = (state) =>
+  state.trim().toLowerCase().replace(/\s+/g, " ");
+
+export const validateMalaysiaPostalCode = (postalCode, state) => {
+  const cleanPostalCode = String(postalCode || "").trim();
+  const cleanState = String(state || "").trim();
+
+  if (!cleanPostalCode) {
+    return "";
+  }
+
+  if (!/^\d{5}$/.test(cleanPostalCode)) {
+    return "Postal code must be exactly 5 digits.";
+  }
+
+  if (!cleanState) {
+    return "";
+  }
+
+  const ranges = postcodeStateRanges[normalizeStateName(cleanState)];
+
+  if (!ranges) {
+    return "";
+  }
+
+  const prefix = Number(cleanPostalCode.slice(0, 2));
+  const matchesState = ranges.some(
+    ([start, end]) => prefix >= start && prefix <= end,
+  );
+
+  return matchesState
+    ? ""
+    : `Postal code does not match ${cleanState}.`;
+};
+
 export const emptyGuestSelection = {
   adults: 0,
   children: 0,

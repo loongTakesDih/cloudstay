@@ -8,7 +8,11 @@ import PriceSelector from "./PriceSelector";
 import WizardShell from "./WizardShell";
 import WizardVisual from "./WizardVisual";
 import { MapPicker } from "../../components/PropertyMap";
-import { popularCities, popularCityLocations } from "../../utils/searchOptions.js";
+import {
+  popularCities,
+  popularCityLocations,
+  validateMalaysiaPostalCode,
+} from "../../utils/searchOptions.js";
 
 const propertyCategories = [
   "Apartment",
@@ -221,6 +225,10 @@ function ListingWizard({ mode = "become-host" }) {
   const [photoUploading, setPhotoUploading] = useState(false);
 
   const currentScreen = screens[screenIndex];
+  const postalCodeError = validateMalaysiaPostalCode(
+    form.postalCode,
+    form.state,
+  );
   const datesValid =
     form.availableFrom &&
     form.availableTo &&
@@ -241,7 +249,8 @@ function ListingWizard({ mode = "become-host" }) {
           form.latitude != null &&
           form.longitude != null &&
           Number.isFinite(Number(form.latitude)) &&
-          Number.isFinite(Number(form.longitude))
+          Number.isFinite(Number(form.longitude)) &&
+          !postalCodeError
         );
       case "basics":
         return (
@@ -262,7 +271,7 @@ function ListingWizard({ mode = "become-host" }) {
       default:
         return true;
     }
-  }, [currentScreen.id, datesValid, form]);
+  }, [currentScreen.id, datesValid, form, postalCodeError]);
 
   const progress = (screenIndex + 1) / screens.length;
   const isFinal = currentScreen.id === "done";
@@ -377,7 +386,7 @@ function ListingWizard({ mode = "become-host" }) {
     setError("");
 
     if (!currentScreenValid) {
-      setError("Complete this step before continuing.");
+      setError(postalCodeError || "Complete this step before continuing.");
       return;
     }
 
@@ -554,11 +563,18 @@ function ListingWizard({ mode = "become-host" }) {
                 <span className="mb-2 block text-sm font-bold text-slate-700">Postal code</span>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  maxLength="5"
                   value={form.postalCode}
                   onChange={(event) => updateLocation("postalCode", event.target.value)}
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
                   placeholder="50000"
                 />
+                {postalCodeError && (
+                  <span className="mt-2 block text-xs font-bold text-red-600">
+                    {postalCodeError}
+                  </span>
+                )}
               </label>
               <label>
                 <span className="mb-2 block text-sm font-bold text-slate-700">Country</span>

@@ -13,6 +13,26 @@ namespace server.Controllers;
 [Route("api/[controller]")]
 public class PropertiesController : ControllerBase
 {
+    private static readonly Dictionary<string, List<(int Start, int End)>> PostcodeStateRanges = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["Johor"] = [(79, 86)],
+        ["Kedah"] = [(5, 9)],
+        ["Kelantan"] = [(15, 18)],
+        ["Kuala Lumpur"] = [(50, 60)],
+        ["Labuan"] = [(87, 87)],
+        ["Melaka"] = [(75, 78)],
+        ["Negeri Sembilan"] = [(70, 73)],
+        ["Pahang"] = [(25, 28), (39, 39), (49, 49), (69, 69)],
+        ["Penang"] = [(10, 14)],
+        ["Perak"] = [(30, 36)],
+        ["Perlis"] = [(1, 2)],
+        ["Putrajaya"] = [(62, 62)],
+        ["Sabah"] = [(88, 91)],
+        ["Sarawak"] = [(93, 98)],
+        ["Selangor"] = [(40, 48), (63, 64), (68, 68)],
+        ["Terengganu"] = [(20, 24)]
+    };
+
     private readonly AppDbContext _context;
     private readonly RealtimeNotifier _realtime;
 
@@ -449,6 +469,15 @@ public class PropertiesController : ControllerBase
             return "Street address, city, state, and country are required.";
         }
 
+        var postalCodeError = ValidateMalaysiaPostalCode(
+            request.PostalCode,
+            request.State);
+
+        if (postalCodeError != null)
+        {
+            return postalCodeError;
+        }
+
         if (request.GuestCount < 1)
         {
             return "Guest count must be at least 1.";
@@ -487,6 +516,41 @@ public class PropertiesController : ControllerBase
         }
 
         return null;
+    }
+
+    private static string? ValidateMalaysiaPostalCode(
+        string? postalCode,
+        string? state)
+    {
+        var cleanPostalCode = postalCode?.Trim();
+
+        if (string.IsNullOrWhiteSpace(cleanPostalCode))
+        {
+            return null;
+        }
+
+        if (cleanPostalCode.Length != 5 ||
+            cleanPostalCode.Any(character => !char.IsDigit(character)))
+        {
+            return "Postal code must be exactly 5 digits.";
+        }
+
+        var cleanState = state?.Trim();
+
+        if (string.IsNullOrWhiteSpace(cleanState) ||
+            !PostcodeStateRanges.TryGetValue(cleanState, out var ranges))
+        {
+            return null;
+        }
+
+        var prefix = int.Parse(cleanPostalCode[..2]);
+        var matchesState = ranges.Any(range =>
+            prefix >= range.Start &&
+            prefix <= range.End);
+
+        return matchesState
+            ? null
+            : $"Postal code does not match {cleanState}.";
     }
 
     internal static Property BuildProperty(
