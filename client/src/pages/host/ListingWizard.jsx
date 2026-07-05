@@ -8,7 +8,7 @@ import PriceSelector from "./PriceSelector";
 import WizardShell from "./WizardShell";
 import WizardVisual from "./WizardVisual";
 import { MapPicker } from "../../components/PropertyMap";
-import { popularCities } from "../../utils/searchOptions.js";
+import { popularCities, popularCityLocations } from "../../utils/searchOptions.js";
 
 const propertyCategories = [
   "Apartment",
@@ -484,7 +484,19 @@ function ListingWizard({ mode = "become-host" }) {
       case "address":
         {
           const updateLocation = (field, value) => {
-            const next = { ...form, [field]: value };
+            const cityLocation = field === "city" ? popularCityLocations[value] : null;
+            const next = {
+              ...form,
+              [field]: value,
+              ...(cityLocation
+                ? {
+                    state: cityLocation.state,
+                    country: cityLocation.country,
+                    latitude: cityLocation.latitude,
+                    longitude: cityLocation.longitude,
+                  }
+                : {}),
+            };
             const address = [
               next.addressLine,
               next.city,

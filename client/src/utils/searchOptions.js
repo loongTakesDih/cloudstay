@@ -9,6 +9,57 @@ export const popularCities = [
   "Langkawi",
 ];
 
+export const popularCityLocations = {
+  "Kuala Lumpur": {
+    state: "Kuala Lumpur",
+    country: "Malaysia",
+    latitude: 3.139,
+    longitude: 101.6869,
+  },
+  "George Town": {
+    state: "Penang",
+    country: "Malaysia",
+    latitude: 5.4141,
+    longitude: 100.3288,
+  },
+  "Johor Bahru": {
+    state: "Johor",
+    country: "Malaysia",
+    latitude: 1.4927,
+    longitude: 103.7414,
+  },
+  Melaka: {
+    state: "Melaka",
+    country: "Malaysia",
+    latitude: 2.1896,
+    longitude: 102.2501,
+  },
+  "Kota Kinabalu": {
+    state: "Sabah",
+    country: "Malaysia",
+    latitude: 5.9804,
+    longitude: 116.0735,
+  },
+  Kuching: {
+    state: "Sarawak",
+    country: "Malaysia",
+    latitude: 1.5533,
+    longitude: 110.3592,
+  },
+  Ipoh: {
+    state: "Perak",
+    country: "Malaysia",
+    latitude: 4.5975,
+    longitude: 101.0901,
+  },
+  Langkawi: {
+    state: "Kedah",
+    country: "Malaysia",
+    latitude: 6.35,
+    longitude: 99.8,
+  },
+};
+
 export const emptyGuestSelection = {
   adults: 0,
   children: 0,

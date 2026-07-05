@@ -11,7 +11,7 @@ import {
 import AppHeader from "../../components/AppHeader";
 import { MapPicker } from "../../components/PropertyMap";
 import { useAuth } from "../../context/useAuth";
-import { popularCities } from "../../utils/searchOptions.js";
+import { popularCities, popularCityLocations } from "../../utils/searchOptions.js";
 
 const splitValues = (value) => {
   if (!value) return [];
@@ -226,7 +226,19 @@ function ViewListing() {
 
   const updateEditLocation = (field, value) => {
     setEditForm((currentForm) => {
-      const next = { ...currentForm, [field]: value };
+      const cityLocation = field === "city" ? popularCityLocations[value] : null;
+      const next = {
+        ...currentForm,
+        [field]: value,
+        ...(cityLocation
+          ? {
+              state: cityLocation.state,
+              country: cityLocation.country,
+              latitude: cityLocation.latitude,
+              longitude: cityLocation.longitude,
+            }
+          : {}),
+      };
       const address = [
         next.addressLine,
         next.city,
