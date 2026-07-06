@@ -59,4 +59,25 @@ public class StripePaymentService
         var service = new SessionService();
         return await service.CreateAsync(options);
     }
+
+    public async Task<Refund> RefundPaymentAsync(
+        int bookingId,
+        string paymentIntentId)
+    {
+        var service = new RefundService();
+        return await service.CreateAsync(
+            new RefundCreateOptions
+            {
+                PaymentIntent = paymentIntentId,
+                Metadata = new Dictionary<string, string>
+                {
+                    { "bookingId", bookingId.ToString() },
+                    { "reason", "host_declined" }
+                }
+            },
+            new RequestOptions
+            {
+                IdempotencyKey = $"booking-{bookingId}-host-declined-refund"
+            });
+    }
 }

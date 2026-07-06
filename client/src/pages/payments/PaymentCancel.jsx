@@ -11,7 +11,7 @@ function PaymentCancel() {
         <section className="w-full rounded-[2rem] border border-amber-100 bg-white p-10 shadow-sm">
           <h1 className="text-3xl font-bold">Payment cancelled</h1>
           <p className="mt-3 leading-7 text-slate-600">
-            Your payment was cancelled. You can return to My Trips and try again.
+            Your booking was not submitted for host review. You can return to My Trips and try payment again.
           </p>
           <button
             type="button"

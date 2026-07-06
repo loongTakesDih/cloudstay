@@ -93,7 +93,11 @@ function MyTripsPage() {
           <div className="mt-8 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {trips.map((trip) => {
               const isPaid = trip.paymentStatus === "Paid";
-              const canPay = trip.status === "Accepted" && !isPaid;
+              const isRefunded = trip.paymentStatus === "Refunded";
+              const canPay =
+                ["Pending", "Accepted"].includes(trip.status) &&
+                !isPaid &&
+                !isRefunded;
               const isStartingPayment = payingBookingId === trip.id;
 
               return (
@@ -119,12 +123,22 @@ function MyTripsPage() {
                     </div>
                   </button>
 
-                  {(isPaid || canPay) && (
+                  {(isPaid || isRefunded || canPay) && (
                     <div className="border-t border-slate-100 p-5">
-                      {isPaid ? (
-                        <span className="inline-flex rounded-full bg-emerald-50 px-4 py-2 text-sm font-bold text-emerald-700">
-                          Paid
-                        </span>
+                      {isRefunded ? (
+                        <p className="rounded-2xl bg-rose-50 px-4 py-3 text-sm font-bold text-rose-700">
+                          Booking declined · Payment refunded
+                        </p>
+                      ) : isPaid ? (
+                        <p className={`rounded-2xl px-4 py-3 text-sm font-bold ${
+                          trip.status === "Pending"
+                            ? "bg-amber-50 text-amber-800"
+                            : "bg-emerald-50 text-emerald-700"
+                        }`}>
+                          {trip.status === "Pending"
+                            ? "Payment completed · Waiting for host approval"
+                            : "Paid · Booking accepted"}
+                        </p>
                       ) : (
                         <button
                           type="button"

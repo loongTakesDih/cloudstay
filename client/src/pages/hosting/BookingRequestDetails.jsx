@@ -63,7 +63,10 @@ function BookingRequestDetails() {
       await updateBookingStatus(id, status);
       const guestId = booking?.guest?.id ?? booking?.guest?.userId;
       if (guestId) {
+        const nextPaymentStatus =
+          status === "Declined" ? "Refunded" : booking.paymentStatus;
         addNotification(guestId, {
+          eventId: `guest-booking-${booking.id}-${status}-${nextPaymentStatus}`,
           type: "booking-status",
           audience: "guest",
           direction: "outgoing",
@@ -73,7 +76,7 @@ function BookingRequestDetails() {
               ? `${booking.property?.title || "Your stay"} has been accepted by the host.`
               : status === "Completed"
                 ? `${booking.property?.title || "Your stay"} has been checked out successfully.`
-                : `${booking.property?.title || "Your stay"} was declined by the host.`,
+                : `${booking.property?.title || "Your stay"} was declined and the payment was refunded.`,
           bookingId: booking.id,
           propertyId: booking.property?.id ?? booking.propertyId,
           propertyTitle: booking.property?.title || "CloudStay stay",
@@ -140,6 +143,10 @@ function BookingRequestDetails() {
               <p className="text-xs font-bold uppercase text-slate-500">Booking Status</p>
               <p className="mt-1 font-bold">{booking.status}</p>
             </div>
+            <div className="rounded-2xl bg-emerald-50 p-4">
+              <p className="text-xs font-bold uppercase text-emerald-700">Payment Status</p>
+              <p className="mt-1 font-bold text-emerald-800">{booking.paymentStatus}</p>
+            </div>
             <div className="rounded-2xl bg-slate-50 p-4">
               <p className="text-xs font-bold uppercase text-slate-500">Stay Dates</p>
               <p className="mt-1 font-bold">
@@ -184,7 +191,7 @@ function BookingRequestDetails() {
             ) : (
               <div className="rounded-2xl bg-slate-50 p-4 text-sm font-semibold text-slate-600">
                 {isAccepted
-                  ? "This stay is accepted. The guest can check out from their booking details when they leave."
+                  ? "This paid stay is accepted. The guest can check out from their booking details when they leave."
                   : `This booking is marked as ${booking.status.toLowerCase()} and is part of your booking history.`}
               </div>
             )}

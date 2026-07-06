@@ -20,14 +20,26 @@ export const getNotificationsKey = (userId) =>
 export const readNotifications = (userId) => {
   try {
     const raw = localStorage.getItem(getNotificationsKey(userId));
-    return raw ? JSON.parse(raw) : [];
+    const notifications = raw ? JSON.parse(raw) : [];
+    return Array.isArray(notifications)
+      ? notifications.sort(
+          (a, b) =>
+            new Date(b.createdAt || 0).getTime() -
+            new Date(a.createdAt || 0).getTime(),
+        )
+      : [];
   } catch {
     return [];
   }
 };
 
 export const writeNotifications = (userId, notifications) => {
-  localStorage.setItem(getNotificationsKey(userId), JSON.stringify(notifications));
+  const newestFirst = [...notifications].sort(
+    (a, b) =>
+      new Date(b.createdAt || 0).getTime() -
+      new Date(a.createdAt || 0).getTime(),
+  );
+  localStorage.setItem(getNotificationsKey(userId), JSON.stringify(newestFirst));
 };
 
 export const markNotificationsRead = (userId, notificationIds) => {
@@ -42,40 +54,29 @@ export const markNotificationsRead = (userId, notificationIds) => {
 
 export const addNotification = (userId, notification) => {
   const existing = readNotifications(userId);
-  const duplicateIndex = existing.findIndex(
-    (item) =>
-      item.type === notification.type &&
-      (
-        notification.messageId
-          ? item.messageId === notification.messageId
-          : item.bookingId === notification.bookingId &&
-            item.status === notification.status
-      ),
-  );
+  const sourceEventId =
+    notification.eventId ||
+    (notification.messageId ? `message:${notification.messageId}` : null);
+  const duplicate = sourceEventId
+    ? existing.find((item) => item.eventId === sourceEventId)
+    : null;
 
-  if (duplicateIndex >= 0) {
-    const duplicate = existing[duplicateIndex];
-    const remaining = existing.filter((_, index) => index !== duplicateIndex);
-    const updated = {
-      ...duplicate,
-      ...notification,
-      createdAt: new Date().toISOString(),
-      read: false,
-    };
-
-    writeNotifications(userId, [updated, ...remaining]);
-    window.dispatchEvent(new CustomEvent("cloudstay:notifications-changed"));
-    return updated;
+  if (duplicate) {
+    return duplicate;
   }
 
+  const created = {
+    id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    createdAt: new Date().toISOString(),
+    read: false,
+    ...notification,
+    ...(sourceEventId ? { eventId: sourceEventId } : {}),
+  };
+
   writeNotifications(userId, [
-    {
-      id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      createdAt: new Date().toISOString(),
-      read: false,
-      ...notification,
-    },
+    created,
     ...existing,
   ]);
   window.dispatchEvent(new CustomEvent("cloudstay:notifications-changed"));
+  return created;
 };

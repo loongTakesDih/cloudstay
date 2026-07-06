@@ -107,6 +107,7 @@ function BookingDetails() {
       const hostId = booking.property?.hostId;
       if (hostId) {
         addNotification(hostId, {
+          eventId: `host-booking-${booking.id}-CheckedOut`,
           type: "booking-status",
           audience: "host",
           direction: "incoming",
@@ -244,6 +245,22 @@ function BookingDetails() {
               </p>
             </div>
           </div>
+
+          {booking.status === "Pending" && booking.paymentStatus === "Paid" && (
+            <p className="mt-6 rounded-2xl bg-amber-50 p-4 text-sm font-bold text-amber-800">
+              Payment completed. This booking is waiting for host approval.
+            </p>
+          )}
+          {booking.status === "Accepted" && booking.paymentStatus === "Paid" && (
+            <p className="mt-6 rounded-2xl bg-emerald-50 p-4 text-sm font-bold text-emerald-800">
+              Booking accepted. Your payment is complete and these dates are confirmed.
+            </p>
+          )}
+          {booking.status === "Declined" && booking.paymentStatus === "Refunded" && (
+            <p className="mt-6 rounded-2xl bg-rose-50 p-4 text-sm font-bold text-rose-800">
+              Booking declined. Your Stripe payment has been refunded.
+            </p>
+          )}
 
           <div className="mt-8 border-t border-slate-200 pt-6">
             {(chatError || checkoutError) && (

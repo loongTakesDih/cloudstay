@@ -10,11 +10,14 @@ function NotificationBell({ userId }) {
 
   useEffect(() => {
     let active = true;
-    Promise.resolve().then(() => {
+    const refresh = () => {
       if (active) setNotifications(userId ? readNotifications(userId) : []);
-    });
+    };
+    Promise.resolve().then(refresh);
+    window.addEventListener("cloudstay:notifications-changed", refresh);
     return () => {
       active = false;
+      window.removeEventListener("cloudstay:notifications-changed", refresh);
     };
   }, [userId]);
 

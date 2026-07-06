@@ -1,0 +1,163 @@
+## CloudStay Critical Cheat Sheet
+
+### 1. Backend publish + zip command
+
+Run this when backend code changes:
+
+```powershell
+cd C:\Projects\cloudstay\server
+
+Remove-Item -Recurse -Force .\publish -ErrorAction SilentlyContinue
+Remove-Item .\cloudstay-backend-stripe.zip -Force -ErrorAction SilentlyContinue
+
+dotnet publish -c Release -o ./publish
+
+cd .\publish
+Compress-Archive -Path * -DestinationPath ..\cloudstay-backend-stripe.zip -Force
+```
+
+Upload this to Beanstalk:
+
+```txt
+C:\Projects\cloudstay\server\cloudstay-backend-stripe.zip
+```
+
+---
+
+### 2. Vercel env variable
+
+In Vercel:
+
+```txt
+Name:  VITE_API_BASE_URL
+Value: https://cms3cefstd.execute-api.us-east-1.amazonaws.com/api
+```
+
+Use this for Production, and Preview too if needed.
+
+After changing it, redeploy Vercel.
+
+---
+
+### 3. Beanstalk important environment properties
+
+```txt
+ClientUrl = https://cloudstay.vercel.app
+Stripe__SecretKey = sk_test_...
+Stripe__WebhookSecret = whsec_...
+ConnectionStrings__DefaultConnection = NeonDB connection string
+Jwt__Key = your JWT key
+Jwt__Issuer = your issuer
+Jwt__Audience = your audience
+```
+
+After changing Beanstalk env vars, wait for Beanstalk to restart.
+
+---
+
+### 4. API Gateway important values
+
+```txt
+Base URL:
+https://cms3cefstd.execute-api.us-east-1.amazonaws.com
+```
+
+```txt
+Route:
+ANY /{proxy+}
+```
+
+```txt
+Integration:
+http://server-dev.us-east-1.elasticbeanstalk.com/{proxy}
+```
+
+Test API Gateway:
+
+```txt
+https://cms3cefstd.execute-api.us-east-1.amazonaws.com/api/properties
+```
+
+---
+
+### 5. Stripe webhook
+
+Webhook URL:
+
+```txt
+https://cms3cefstd.execute-api.us-east-1.amazonaws.com/api/payments/webhook
+```
+
+Event:
+
+```txt
+checkout.session.completed
+```
+
+After creating/editing webhook, copy the new signing secret:
+
+```txt
+whsec_...
+```
+
+Put it in Beanstalk:
+
+```txt
+Stripe__WebhookSecret = whsec_...
+```
+
+---
+
+### 6. Stripe test card
+
+```txt
+Card: 4242 4242 4242 4242
+Expiry: 12/34
+CVC: 123
+Postcode: anything
+```
+
+---
+
+### 7. Official live link
+
+Send people this:
+
+```txt
+https://cloudstay.vercel.app
+```
+
+---
+
+### 8. Quick DB payment check
+
+Run in Neon SQL Editor:
+
+```sql
+SELECT 
+  "Id",
+  "Status",
+  "PaymentStatus",
+  "StripeSessionId",
+  "StripePaymentIntentId",
+  "UpdatedAt"
+FROM "Bookings"
+ORDER BY "Id" DESC
+LIMIT 10;
+```
+
+Expected after payment:
+
+```txt
+Status = Accepted
+PaymentStatus = Paid
+```
+ 
+
+ run this in powershell to test stripe locally:
+ stripe listen --forward-to http://localhost:5028/api/payments/webhook
+
+
+then insert into cd server terminal
+dotnet user-secrets set "Stripe:WebhookSecret" "whsec_e8815653e300d949e6bc9bf4c5afbf139300e365e2eaa79f9e6ee9346ae8380c"
+

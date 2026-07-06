@@ -39,9 +39,20 @@ const applyFilters = (sourceListings, filters) => {
   return sourceListings.filter((listing) => {
     const matchesWhere =
       !destination ||
-      [listing.city, listing.state, listing.country, listing.location, listing.address]
+      [
+        listing.city,
+        listing.state,
+        listing.country,
+        listing.title,
+        listing.location,
+        listing.address,
+        listing.addressLine,
+        listing.postalCode,
+        listing.propertyCategory,
+        listing.placeType,
+      ]
         .filter(Boolean)
-        .some((value) => value.toLowerCase().includes(destination));
+        .some((value) => String(value).toLowerCase().includes(destination));
 
     const availableFrom = listing.availableFrom?.slice(0, 10);
     const availableTo = listing.availableTo?.slice(0, 10);
@@ -73,10 +84,34 @@ function ExploreStays() {
     guests: { ...emptyGuestSelection },
   });
   const filtersRef = useRef(filters);
+  const searchControlsRef = useRef(null);
 
   useEffect(() => {
     filtersRef.current = filters;
   }, [filters]);
+
+  useEffect(() => {
+    if (!activePicker) return undefined;
+
+    const closeOnClickAway = (event) => {
+      if (
+        searchControlsRef.current &&
+        !searchControlsRef.current.contains(event.target)
+      ) {
+        setActivePicker("");
+      }
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setActivePicker("");
+    };
+
+    document.addEventListener("pointerdown", closeOnClickAway);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnClickAway);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [activePicker]);
 
   const loadListings = useCallback(async () => {
     try {
@@ -154,7 +189,7 @@ function ExploreStays() {
 
       <main className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-10 lg:py-8 2xl:px-12">
         <section className="relative z-20 mx-auto mb-10 max-w-4xl">
-          <div className="grid rounded-[2rem] border border-slate-200 bg-white p-2 shadow-lg shadow-slate-200/60 md:grid-cols-[1.2fr_1fr_1fr_auto]">
+          <div ref={searchControlsRef} className="grid rounded-[2rem] border border-slate-200 bg-white p-2 shadow-lg shadow-slate-200/60 md:grid-cols-[1.2fr_1fr_1fr_auto]">
             <div className="relative">
               <label className="block w-full rounded-[1.5rem] px-5 py-3 pr-11 text-left hover:bg-slate-50">
                 <span className="block text-xs font-bold">Where</span>

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using server.Data;
+using server.Services;
 using Stripe;
 using Stripe.Checkout;
 
@@ -14,13 +15,16 @@ public class PaymentsController : ControllerBase
 {
     private readonly AppDbContext _context;
     private readonly StripeSettings _stripeSettings;
+    private readonly RealtimeNotifier _realtime;
 
     public PaymentsController(
         AppDbContext context,
-        IOptions<StripeSettings> stripeOptions)
+        IOptions<StripeSettings> stripeOptions,
+        RealtimeNotifier realtime)
     {
         _context = context;
         _stripeSettings = stripeOptions.Value;
+        _realtime = realtime;
     }
 
     [AllowAnonymous]
@@ -82,8 +86,17 @@ public class PaymentsController : ControllerBase
 
         if (string.Equals(
                 booking.PaymentStatus,
-                "Paid",
+                "Refunded",
                 StringComparison.OrdinalIgnoreCase))
+        {
+            return Ok(new { message = "Booking payment was already refunded." });
+        }
+
+        if (string.Equals(
+                booking.PaymentStatus,
+                "Paid",
+                StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(booking.StripePaymentIntentId))
         {
             return Ok(new { message = "Booking payment was already recorded." });
         }
@@ -93,7 +106,22 @@ public class PaymentsController : ControllerBase
         booking.UpdatedAt = DateTime.UtcNow;
 
         await _context.SaveChangesAsync();
+        var hostId = await _context.Properties
+            .Where(property => property.Id == booking.PropertyId)
+            .Select(property => property.HostId)
+            .FirstOrDefaultAsync();
+        await _realtime.NotifyUsersAsync(
+            [booking.GuestId, hostId],
+            new
+            {
+                Entity = "booking",
+                Action = "payment-completed",
+                BookingId = booking.Id,
+                booking.PropertyId,
+                booking.Status,
+                booking.PaymentStatus
+            });
 
-        return Ok(new { message = "Booking payment recorded." });
+        return Ok(new { message = "Booking paid and waiting for host approval." });
     }
 }

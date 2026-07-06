@@ -24,6 +24,11 @@ const MenuIcon = ({ type }) => (
         <path d="M18 9a6 6 0 0 0-12 0c0 7-3 7-3 7h18s-3 0-3-7Zm-8 11h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     )}
+    {type === "messages" && (
+      <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
+        <path d="M20 15a3 3 0 0 1-3 3H9l-5 3v-6a3 3 0 0 1-1-2.2V7a3 3 0 0 1 3-3h11a3 3 0 0 1 3 3v8Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      </svg>
+    )}
     {type === "hosting" && (
       <svg viewBox="0 0 24 24" fill="none" className="h-4 w-4" aria-hidden="true">
         <path d="m3 11 9-7 9 7v9h-6v-6H9v6H3v-9Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
@@ -187,6 +192,9 @@ function MarketplaceHeader({
                     </button>
                     <button type="button" onClick={() => goTo("/notifications")} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950" role="menuitem">
                       <MenuIcon type="notifications" /> Notifications
+                    </button>
+                    <button type="button" onClick={() => goTo("/messages")} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950" role="menuitem">
+                      <MenuIcon type="messages" /> Messages
                     </button>
                     <button type="button" onClick={() => goTo(user.isHost ? "/hosting/dashboard" : "/become-host")} className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left text-sm font-semibold text-slate-700 transition hover:bg-slate-50 hover:text-slate-950" role="menuitem">
                       <MenuIcon type="hosting" /> {user.isHost ? "Hosting dashboard" : "Hosting status"}

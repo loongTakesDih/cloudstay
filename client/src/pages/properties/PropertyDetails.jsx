@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   getProperty,
@@ -15,7 +15,7 @@ import { PropertyLocationMap } from "../../components/PropertyMap";
 import DateRangePicker from "../../components/DateRangePicker.jsx";
 import GuestPicker from "../../components/GuestPicker.jsx";
 import { useAuth } from "../../context/useAuth";
-import { addNotification, readSavedListings, writeSavedListings } from "../../utils/localState.js";
+import { readSavedListings, writeSavedListings } from "../../utils/localState.js";
 import { formatGuests, getGuestTotal } from "../../utils/searchOptions.js";
 
 const splitValues = (value) => {
@@ -286,8 +286,7 @@ function NotFoundState({ onBack }) {
 }
 
 // --- REVIEW BOOKING MODAL ---
-function ReviewBookingModal({ listing, checkIn, checkOut, guests, onClose, onSuccess }) {
-  const { user } = useAuth();
+function ReviewBookingModal({ listing, checkIn, checkOut, guests, onClose }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const start = new Date(checkIn);
@@ -306,44 +305,16 @@ function ReviewBookingModal({ listing, checkIn, checkOut, guests, onClose, onSuc
         children: guests.children,
         infants: guests.infants,
       });
-      if (listing.hostId && result.bookingId) {
-        const today = new Date();
-        const requestedCheckIn = new Date(`${checkIn}T00:00:00`);
-        const isToday =
-          requestedCheckIn.getFullYear() === today.getFullYear() &&
-          requestedCheckIn.getMonth() === today.getMonth() &&
-          requestedCheckIn.getDate() === today.getDate();
-        addNotification(listing.hostId, {
-          type: "booking-request",
-          audience: "host",
-          direction: "incoming",
-          title: "New booking request",
-          message: `A guest requested ${listing.title} from ${checkIn} to ${checkOut}.`,
-          bookingId: result.bookingId,
-          propertyId: listing.id,
-          propertyTitle: listing.title,
-          status: "Pending",
-          targetPath: `/hosting/dashboard?tab=bookings&view=${isToday ? "today" : "upcoming"}`,
-        });
+      if (!result.checkoutUrl) {
+        throw new Error("The payment session did not include a checkout URL.");
       }
-      if (user?.userId && result.bookingId) {
-        addNotification(user.userId, {
-          type: "booking-request",
-          audience: "guest",
-          direction: "outgoing",
-          title: "Booking request sent",
-          message: `Your request for ${listing.title} from ${checkIn} to ${checkOut} was sent to the host.`,
-          bookingId: result.bookingId,
-          propertyId: listing.id,
-          propertyTitle: listing.title,
-          status: "Pending",
-          targetPath: `/trips/${result.bookingId}`,
-        });
-      }
-      onSuccess();
+      window.location.href = result.checkoutUrl;
     } catch (error) {
       console.error("Booking failed", error.response?.data || error);
-      const errorMessage = error.response?.data?.message || "Failed to send booking request. Please try again.";
+      const errorMessage =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to start payment. Please try again.";
       alert(errorMessage);
       setIsSubmitting(false);
     }
@@ -383,7 +354,7 @@ function ReviewBookingModal({ listing, checkIn, checkOut, guests, onClose, onSuc
         </div>
 
         <p className="mt-4 text-center text-xs font-semibold text-slate-500">
-          You won't be charged yet. The host has 24 hours to accept or decline.
+          You will pay securely now. The host will review your booking after payment.
         </p>
 
         <div className="mt-6 flex gap-3">
@@ -399,7 +370,7 @@ function ReviewBookingModal({ listing, checkIn, checkOut, guests, onClose, onSuc
             disabled={isSubmitting}
             className="w-full rounded-full bg-rose-500 py-3 font-bold text-white transition hover:bg-rose-600 disabled:bg-slate-300"
           >
-            {isSubmitting ? "Sending..." : "Confirm Request"}
+            {isSubmitting ? "Opening checkout..." : "Continue to Payment"}
           </button>
         </div>
       </div>
@@ -411,12 +382,12 @@ function ReviewBookingModal({ listing, checkIn, checkOut, guests, onClose, onSuc
 // --- PROPERTY BOOKING CARD ---
 function PropertyBookingCard({ listing, user }) {
   const navigate = useNavigate();
+  const pickerControlsRef = useRef(null);
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [guests, setGuests] = useState({ adults: 1, children: 0, infants: 0 });
   const [activePicker, setActivePicker] = useState("");
   const [showModal, setShowModal] = useState(false);
-  const [requestSent, setRequestSent] = useState(false);
   const [availability, setAvailability] = useState(null);
 
   useEffect(() => {
@@ -436,6 +407,29 @@ function PropertyBookingCard({ listing, user }) {
     };
   }, [listing.id]);
 
+  useEffect(() => {
+    if (!activePicker) return undefined;
+
+    const closeOnClickAway = (event) => {
+      if (
+        pickerControlsRef.current &&
+        !pickerControlsRef.current.contains(event.target)
+      ) {
+        setActivePicker("");
+      }
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setActivePicker("");
+    };
+
+    document.addEventListener("pointerdown", closeOnClickAway);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnClickAway);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [activePicker]);
+
   const today = new Date();
   const todayValue = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const availableFrom = listing.availableFrom?.slice(0, 10);
@@ -454,23 +448,6 @@ function PropertyBookingCard({ listing, user }) {
   const isValidDates = baseDatesValid && !overlapsBlockedDates;
   const guestCountValid = getGuestTotal(guests) <= Number(listing.guestCount || 0);
   
-  if (requestSent) {
-    return (
-      <aside className="rounded-3xl border border-emerald-200 bg-emerald-50 p-5 shadow-xl lg:sticky lg:top-6 text-center">
-        <h3 className="text-xl font-bold text-emerald-800">Request Sent!</h3>
-        <p className="mt-2 text-sm text-emerald-700">
-          The host has received your request. You will be notified when they accept or decline.
-        </p>
-        <button 
-          onClick={() => navigate("/my-trips")}
-          className="mt-4 w-full rounded-full bg-emerald-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-emerald-700"
-        >
-          View My Trips
-        </button>
-      </aside>
-    );
-  }
-
   return (
     <>
       <aside className="rounded-3xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/70 lg:sticky lg:top-6">
@@ -478,7 +455,7 @@ function PropertyBookingCard({ listing, user }) {
           RM {listing.pricePerNight} <span className="text-sm font-semibold text-slate-500">night</span>
         </p>
         
-        <div className="relative mt-5 grid grid-cols-2 rounded-2xl border border-slate-200">
+        <div ref={pickerControlsRef} className="relative mt-5 grid grid-cols-2 rounded-2xl border border-slate-200">
           <button type="button" onClick={() => setActivePicker(activePicker === "dates" ? "" : "dates")} className="border-r border-slate-200 p-3 text-left">
             <span className="block text-xs font-bold uppercase text-slate-500">Check in</span>
             <span className="mt-1 block text-sm">{checkIn || "Add date"}</span>
@@ -540,7 +517,7 @@ function PropertyBookingCard({ listing, user }) {
             onClick={() => setShowModal(true)}
             className="mt-5 w-full rounded-full bg-rose-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-rose-600 disabled:cursor-not-allowed disabled:bg-rose-300"
           >
-            {listing.isAvailable ? "Request booking" : "Currently unavailable"}
+            {listing.isAvailable ? "Reserve and pay" : "Currently unavailable"}
           </button>
         )}
 
@@ -560,10 +537,6 @@ function PropertyBookingCard({ listing, user }) {
           checkOut={checkOut}
           guests={guests}
           onClose={() => setShowModal(false)}
-          onSuccess={() => {
-            setShowModal(false);
-            setRequestSent(true);
-          }}
         />
       )}
     </>

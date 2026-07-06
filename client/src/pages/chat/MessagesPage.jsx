@@ -6,7 +6,6 @@ import {
   sendConversationMessage,
 } from "../../api/api.js";
 import AppHeader from "../../components/AppHeader.jsx";
-import { useAuth } from "../../context/useAuth.js";
 
 const formatConversationDate = (value) => {
   if (!value) return "";
@@ -33,7 +32,6 @@ const getErrorMessage = (error, fallback) =>
 function MessagesPage() {
   const { conversationId } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
   const messagesEndRef = useRef(null);
   const [conversations, setConversations] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -45,6 +43,9 @@ function MessagesPage() {
 
   const activeId = Number(conversationId) || null;
   const activeConversation = conversations.find((item) => item.id === activeId);
+
+  const selectConversation = (id) => navigate(`/messages/${id}`);
+  const showConversationList = () => navigate("/messages");
 
   const loadConversations = useCallback(async () => {
     try {
@@ -150,26 +151,6 @@ function MessagesPage() {
         eyebrow="Guest & host chat"
         title="Messages"
         subtitle="Keep every stay conversation together with its booking."
-        actions={
-          <>
-            {user?.isHost && (
-              <button
-                type="button"
-                onClick={() => navigate("/hosting/dashboard")}
-                className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50"
-              >
-                Hosting
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => navigate("/dashboard")}
-              className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
-            >
-              Dashboard
-            </button>
-          </>
-        }
       />
 
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
@@ -211,7 +192,7 @@ function MessagesPage() {
                     <button
                       key={conversation.id}
                       type="button"
-                      onClick={() => navigate(`/messages/${conversation.id}`)}
+                      onClick={() => selectConversation(conversation.id)}
                       className={`mb-1 w-full rounded-xl p-4 text-left transition ${
                         isActive
                           ? "bg-rose-50 ring-1 ring-rose-200"
@@ -266,7 +247,7 @@ function MessagesPage() {
                 <div className="flex items-center gap-3 border-b border-slate-200 px-4 py-4 sm:px-6">
                   <button
                     type="button"
-                    onClick={() => navigate("/messages")}
+                    onClick={showConversationList}
                     className="rounded-lg border border-slate-200 p-2 text-slate-600 md:hidden"
                     aria-label="Back to conversations"
                   >

@@ -12,9 +12,9 @@ function PaymentSuccess() {
           <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-emerald-50 text-2xl text-emerald-700">
             ✓
           </div>
-          <h1 className="mt-5 text-3xl font-bold">Payment submitted</h1>
+          <h1 className="mt-5 text-3xl font-bold">Payment completed</h1>
           <p className="mt-3 leading-7 text-slate-600">
-            Your payment is being confirmed. Your booking will update shortly.
+            Your payment is being confirmed. The booking will remain pending while the host reviews it.
           </p>
           <button
             type="button"

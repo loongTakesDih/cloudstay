@@ -100,7 +100,7 @@ public class BookingsController : ControllerBase
         var totalNights = (checkOutDate - checkInDate).Days;
         var calculatedPrice = totalNights * property.PricePerNight;
 
-        // 5. Create the pending booking
+        // 5. Create the pending booking, then send the guest directly to Checkout.
         var booking = new Booking
         {
             GuestId = guestId,
@@ -117,20 +117,34 @@ public class BookingsController : ControllerBase
 
         _context.Bookings.Add(booking);
         await _context.SaveChangesAsync();
-        await _realtime.NotifyUsersAsync(
-            [guestId, property.HostId],
-            new
-            {
-                Entity = "booking",
-                Action = "created",
-                BookingId = booking.Id,
-                booking.PropertyId
-            });
 
-        return Ok(new 
-        { 
-            message = "Booking request sent successfully.", 
-            bookingId = booking.Id 
+        Stripe.Checkout.Session session;
+        try
+        {
+            var amountInSen = decimal.ToInt64(booking.TotalPrice * 100m);
+            session = await _stripePaymentService.CreateCheckoutSessionAsync(
+                booking.Id.ToString(),
+                property.Title,
+                amountInSen,
+                "myr");
+        }
+        catch
+        {
+            _context.Bookings.Remove(booking);
+            await _context.SaveChangesAsync();
+            throw;
+        }
+
+        booking.StripeSessionId = session.Id;
+        booking.UpdatedAt = DateTime.UtcNow;
+        await _context.SaveChangesAsync();
+
+        return Ok(new
+        {
+            message = "Continue to payment to submit this booking for host review.",
+            bookingId = booking.Id,
+            checkoutUrl = session.Url,
+            sessionId = session.Id
         });
     }
 
@@ -158,9 +172,10 @@ public class BookingsController : ControllerBase
             return Forbid();
         }
 
-        if (!string.Equals(booking.Status, "Accepted", StringComparison.OrdinalIgnoreCase))
+        if (!string.Equals(booking.Status, "Pending", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(booking.Status, "Accepted", StringComparison.OrdinalIgnoreCase))
         {
-            return BadRequest(new { message = "Only accepted bookings can be paid." });
+            return BadRequest(new { message = "This booking can no longer be paid." });
         }
 
         if (string.Equals(booking.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase))
@@ -234,6 +249,7 @@ public async Task<ActionResult> GetBooking(int id)
             b.Children,
             b.Infants,
             b.Status,
+            b.PaymentStatus,
             b.TotalPrice,
             b.CreatedAt,
             Property = b.Property == null
@@ -301,6 +317,14 @@ public async Task<ActionResult> UpdateStatus(int id, [FromBody] StatusDto status
 
     if (normalizedNextStatus == "accepted")
     {
+        if (!string.Equals(booking.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase))
+        {
+            return BadRequest(new
+            {
+                message = "This booking must be paid before it can be accepted."
+            });
+        }
+
         var hasAcceptedConflict = await _context.Bookings.AnyAsync(other =>
             other.Id != booking.Id &&
             other.PropertyId == booking.PropertyId &&
@@ -317,6 +341,23 @@ public async Task<ActionResult> UpdateStatus(int id, [FromBody] StatusDto status
         }
     }
 
+    if (normalizedNextStatus == "declined" &&
+        string.Equals(booking.PaymentStatus, "Paid", StringComparison.OrdinalIgnoreCase))
+    {
+        if (string.IsNullOrWhiteSpace(booking.StripePaymentIntentId))
+        {
+            return Conflict(new
+            {
+                message = "The payment reference is not available yet. Please try again shortly."
+            });
+        }
+
+        await _stripePaymentService.RefundPaymentAsync(
+            booking.Id,
+            booking.StripePaymentIntentId);
+        booking.PaymentStatus = "Refunded";
+    }
+
     booking.Status = normalizedNextStatus switch
     {
         "accepted" => "Accepted",
@@ -324,6 +365,7 @@ public async Task<ActionResult> UpdateStatus(int id, [FromBody] StatusDto status
         "completed" => "Completed",
         _ => booking.Status
     };
+    booking.UpdatedAt = DateTime.UtcNow;
     await _context.SaveChangesAsync();
     await _realtime.NotifyUsersAsync(
         [booking.GuestId, userId],
@@ -333,7 +375,8 @@ public async Task<ActionResult> UpdateStatus(int id, [FromBody] StatusDto status
             Action = "status-changed",
             BookingId = booking.Id,
             booking.PropertyId,
-            booking.Status
+            booking.Status,
+            booking.PaymentStatus
         });
     if (normalizedNextStatus == "accepted")
     {
@@ -372,6 +415,7 @@ public async Task<ActionResult> Checkout(int id)
     }
 
     booking.Status = "CheckedOut";
+    booking.UpdatedAt = DateTime.UtcNow;
     if (booking.Property != null)
     {
         booking.Property.IsAvailable = false;
@@ -423,6 +467,7 @@ public async Task<ActionResult> GetHostBookingRequests()
 
     var requests = await _context.Bookings
         .Where(b => hostPropertyIds.Contains(b.PropertyId))
+        .Where(b => b.Status != "Pending" || b.PaymentStatus == "Paid")
         .OrderByDescending(b => b.CreatedAt)
         .Select(b => new
         {
@@ -435,8 +480,10 @@ public async Task<ActionResult> GetHostBookingRequests()
             b.Children,
             b.Infants,
             b.Status,
+            b.PaymentStatus,
             b.TotalPrice,
             b.CreatedAt,
+            b.UpdatedAt,
             Property = b.Property == null
                 ? null
                 : new
@@ -486,6 +533,7 @@ public async Task<ActionResult> GetMyBookings()
             b.PaymentStatus,
             b.TotalPrice,
             b.CreatedAt,
+            b.UpdatedAt,
             Property = b.Property == null
                 ? null
                 : new

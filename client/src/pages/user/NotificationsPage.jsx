@@ -21,10 +21,17 @@ const dateKey = (value) => {
   return `${date.getFullYear()}-${month}-${day}`;
 };
 
-const notificationKey = (notification) =>
-  notification.type === "message"
-    ? `message:${notification.messageId || notification.conversationId}`
-    : `${notification.type}:${notification.audience}:${notification.bookingId}:${notification.status}`;
+const notificationEventId = (notification) => {
+  if (notification.eventId) return notification.eventId;
+  if (notification.messageId) return `message:${notification.messageId}`;
+  if (
+    String(notification.id || "").startsWith("guest-booking-") ||
+    String(notification.id || "").startsWith("host-booking-")
+  ) {
+    return notification.id;
+  }
+  return null;
+};
 
 function NotificationsPage() {
   const navigate = useNavigate();
@@ -67,7 +74,8 @@ function NotificationsPage() {
 
         const generated = [
           ...trips.map((booking) => ({
-            id: `guest-booking-${booking.id}-${booking.status}`,
+            id: `guest-booking-${booking.id}-${booking.status}-${booking.paymentStatus}`,
+            eventId: `guest-booking-${booking.id}-${booking.status}-${booking.paymentStatus}`,
             type: "booking-status",
             audience: "guest",
             direction: "outgoing",
@@ -78,14 +86,21 @@ function NotificationsPage() {
                   ? "Booking declined"
                   : booking.status === "CheckedOut" || booking.status === "Completed"
                     ? "Stay completed"
-                    : "Booking request sent",
-            message: `${booking.property?.title || "Your CloudStay booking"} is ${String(booking.status || "pending").toLowerCase()}.`,
+                    : booking.paymentStatus === "Paid"
+                      ? "Payment completed"
+                      : "Payment required",
+            message:
+              booking.status === "Declined" && booking.paymentStatus === "Refunded"
+                ? `${booking.property?.title || "Your CloudStay booking"} was declined and refunded.`
+                : booking.status === "Pending" && booking.paymentStatus === "Paid"
+                  ? `${booking.property?.title || "Your CloudStay booking"} is paid and waiting for host approval.`
+                  : `${booking.property?.title || "Your CloudStay booking"} is ${String(booking.status || "pending").toLowerCase()}.`,
             bookingId: booking.id,
             propertyId: booking.propertyId,
             propertyTitle: booking.property?.title,
             status: booking.status || "Pending",
             targetPath: `/trips/${booking.id}`,
-            createdAt: booking.createdAt,
+            createdAt: booking.updatedAt || booking.createdAt,
           })),
           ...hostBookings
             .filter((booking) =>
@@ -100,13 +115,14 @@ function NotificationsPage() {
                 dateKey(booking.checkIn) === today ? "today" : "upcoming";
               return {
                 id: `host-booking-${booking.id}-${booking.status}`,
+                eventId: `host-booking-${booking.id}-${booking.status}`,
                 type: checkedOut ? "booking-status" : "booking-request",
                 audience: "host",
                 direction: "incoming",
-                title: checkedOut ? "Guest checked out" : "New booking request",
+                title: checkedOut ? "Guest checked out" : "New paid booking request",
                 message: checkedOut
                   ? `${booking.property?.title || "Your property"} is ready for inspection and preparation.`
-                  : `${booking.guest?.username || "A guest"} requested ${booking.property?.title || "your property"}.`,
+                  : `${booking.guest?.username || "A guest"} paid for ${booking.property?.title || "your property"} and is waiting for your review.`,
                 bookingId: booking.id,
                 propertyId: booking.propertyId,
                 propertyTitle: booking.property?.title,
@@ -114,7 +130,7 @@ function NotificationsPage() {
                 targetPath: checkedOut
                   ? "/hosting/dashboard?tab=listings"
                   : `/hosting/dashboard?tab=bookings&view=${view}`,
-                createdAt: booking.createdAt,
+                createdAt: booking.updatedAt || booking.createdAt,
               };
             }),
           ...conversations
@@ -124,6 +140,7 @@ function NotificationsPage() {
             )
             .map((conversation) => ({
               id: `message-${conversation.lastMessage.id}`,
+              eventId: `message:${conversation.lastMessage.id}`,
               type: "message",
               direction: "incoming",
               title: `New message from ${conversation.otherUser?.username || "CloudStay user"}`,
@@ -138,25 +155,17 @@ function NotificationsPage() {
         ];
 
         const existing = readNotifications(user?.userId);
-        const existingByKey = new Map(
-          existing.map((notification) => [
-            notificationKey(notification),
-            notification,
-          ]),
+        const existingEventIds = new Set(
+          existing.map(notificationEventId).filter(Boolean),
         );
-        const generatedKeys = new Set(generated.map(notificationKey));
         const merged = [
-          ...generated.map((notification) => {
-            const previous = existingByKey.get(notificationKey(notification));
-            return {
-              ...notification,
-              id: previous?.id || notification.id,
-              read: previous?.read ?? false,
-            };
-          }),
-          ...existing.filter(
-            (notification) => !generatedKeys.has(notificationKey(notification)),
-          ),
+          ...generated
+            .filter(
+              (notification) =>
+                !existingEventIds.has(notificationEventId(notification)),
+            )
+            .map((notification) => ({ ...notification, read: false })),
+          ...existing,
         ].sort(
           (a, b) =>
             new Date(b.createdAt || 0).getTime() -

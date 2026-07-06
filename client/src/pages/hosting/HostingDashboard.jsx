@@ -17,7 +17,7 @@ import {
 } from "../../utils/hostingData.js";
 import { popularCities } from "../../utils/searchOptions.js";
 
-const workspaceTabs = ["bookings", "listings", "calendar", "messages"];
+const workspaceTabs = ["bookings", "listings", "calendar"];
 const propertyCategories = [
   "Apartment", "House", "Condominium", "Villa", "Studio", "Townhouse",
   "Cabin", "Guesthouse", "Unique Stay", "Other",
@@ -97,6 +97,11 @@ function BookingCard({ booking, onOpen }) {
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate font-bold text-slate-950">{booking.guest?.username || "Guest"}</p>
           <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${getStatusClasses(booking.status)}`}>{booking.status}</span>
+          {booking.paymentStatus && (
+            <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-bold text-emerald-700">
+              {booking.paymentStatus}
+            </span>
+          )}
         </div>
         <p className="mt-1 truncate text-sm font-semibold text-slate-700">{booking.property?.title || "Listing"}</p>
         <p className="mt-2 text-sm text-slate-500">{formatBookingDate(booking.checkIn)} – {formatBookingDate(booking.checkOut)}</p>
@@ -486,26 +491,6 @@ function CalendarTab({ bookings }) {
   );
 }
 
-function MessagesTab() {
-  const navigate = useNavigate();
-
-  return (
-    <section>
-      <div><h1 className="text-3xl font-bold tracking-tight">Messages</h1><p className="mt-2 text-sm text-slate-500">Open your host inbox to reply to guests.</p></div>
-      <div className="mt-7 grid min-h-[360px] place-items-center rounded-3xl border border-slate-200 bg-white p-8 text-center">
-        <div>
-          <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-rose-50 text-2xl">✉</div>
-          <h2 className="mt-4 text-xl font-bold">Your host inbox</h2>
-          <p className="mt-2 text-sm text-slate-500">Booking conversations and unread messages are ready in your inbox.</p>
-          <button type="button" onClick={() => navigate("/messages")} className="mt-6 rounded-full bg-rose-500 px-6 py-3 text-sm font-bold text-white">
-            Open messages
-          </button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function HostingDashboard() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -601,7 +586,6 @@ function HostingDashboard() {
           />
         )}
         {activeTab === "calendar" && <CalendarTab bookings={bookings} />}
-        {activeTab === "messages" && <MessagesTab />}
       </main>
     </div>
   );
