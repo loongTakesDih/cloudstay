@@ -196,6 +196,10 @@ function LeafletCanvas({
         alt: "Property location",
       }).addTo(map);
     }
+
+    map.setView(position, Math.max(map.getZoom(), 13), {
+      animate: true,
+    });
   }, [isPicker, latitude, longitude]);
 
   return (

@@ -1,18 +1,46 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import GoogleSignInButton from "../../components/GoogleSignInButton";
 import MarketplaceHeader from "../../components/MarketplaceHeader";
 import { useAuth } from "../../context/useAuth";
 
 function Login() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const navigateAfterAuth = useCallback((redirectPath) => {
+    const returnTo = searchParams.get("returnTo");
+    const safeReturnTo =
+      returnTo?.startsWith("/") && !returnTo.startsWith("//")
+        ? returnTo
+        : redirectPath;
+
+    navigate(safeReturnTo);
+  }, [navigate, searchParams]);
+
+  const handleGoogleCredential = useCallback(
+    async (credential) => {
+      setError("");
+      setLoading(true);
+
+      try {
+        const redirectPath = await loginWithGoogle(credential);
+        navigateAfterAuth(redirectPath);
+      } catch (err) {
+        setError(err.response?.data?.message || "Google login failed.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loginWithGoogle, navigateAfterAuth],
+  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -21,12 +49,7 @@ function Login() {
 
     try {
       const redirectPath = await login(email, password);
-      const returnTo = searchParams.get("returnTo");
-      const safeReturnTo =
-        returnTo?.startsWith("/") && !returnTo.startsWith("//")
-          ? returnTo
-          : redirectPath;
-      navigate(safeReturnTo);
+      navigateAfterAuth(redirectPath);
     } catch (err) {
       setError(err.response?.data?.message || "Login failed.");
     } finally {
@@ -117,6 +140,20 @@ function Login() {
               {loading ? "Logging in..." : "Log in"}
             </button>
           </form>
+
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-slate-200" />
+            <span className="text-xs font-bold uppercase text-slate-400">
+              or
+            </span>
+            <div className="h-px flex-1 bg-slate-200" />
+          </div>
+
+          <GoogleSignInButton
+            disabled={loading}
+            onCredential={handleGoogleCredential}
+            onError={setError}
+          />
 
           <p className="mt-6 text-center text-sm text-slate-600">
             New to CloudStay?{" "}
