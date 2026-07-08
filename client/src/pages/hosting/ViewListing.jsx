@@ -9,6 +9,7 @@ import {
   uploadPropertyImage,
 } from "../../api/api";
 import AppHeader from "../../components/AppHeader";
+import LocationAutocompleteInput from "../../components/LocationAutocompleteInput";
 import { MapPicker } from "../../components/PropertyMap";
 import { useAuth } from "../../context/useAuth";
 import {
@@ -48,6 +49,17 @@ const toDateInputValue = (value) => {
 
   return date.toISOString().slice(0, 10);
 };
+
+const buildAddress = (location) =>
+  [
+    location.addressLine,
+    location.city,
+    location.postalCode,
+    location.state,
+    location.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
 const buildEditForm = (listing) => ({
   title: listing.title || "",
@@ -246,17 +258,52 @@ function ViewListing() {
             }
           : {}),
       };
-      const address = [
-        next.addressLine,
-        next.city,
-        next.postalCode,
-        next.state,
-        next.country,
-      ].filter(Boolean).join(", ");
+      const address = buildAddress(next);
 
       return {
         ...next,
         address,
+        location: [next.city, next.state, next.country].filter(Boolean).join(", "),
+      };
+    });
+  };
+
+  const applyEditLocationDetails = (location) => {
+    setEditForm((currentForm) => {
+      const next = {
+        ...currentForm,
+        addressLine: location.addressLine || currentForm.addressLine,
+        city: location.city || currentForm.city,
+        state: location.state || currentForm.state,
+        postalCode: location.postalCode || currentForm.postalCode,
+        country: location.country || currentForm.country,
+        latitude: location.latitude ?? currentForm.latitude,
+        longitude: location.longitude ?? currentForm.longitude,
+      };
+
+      return {
+        ...next,
+        address: location.address || buildAddress(next),
+        location: [next.city, next.state, next.country].filter(Boolean).join(", "),
+      };
+    });
+  };
+
+  const previewEditLocationDetails = (location) => {
+    setEditForm((currentForm) => {
+      const next = {
+        ...currentForm,
+        city: location.city || currentForm.city,
+        state: location.state || currentForm.state,
+        postalCode: location.postalCode || currentForm.postalCode,
+        country: location.country || currentForm.country,
+        latitude: location.latitude ?? currentForm.latitude,
+        longitude: location.longitude ?? currentForm.longitude,
+      };
+
+      return {
+        ...next,
+        address: location.address || buildAddress(next),
         location: [next.city, next.state, next.country].filter(Boolean).join(", "),
       };
     });
@@ -521,14 +568,22 @@ function ViewListing() {
                 placeholder="Price per night"
                 required
               />
-              <input
-                type="text"
-                value={editForm.addressLine}
-                onChange={(event) => updateEditLocation("addressLine", event.target.value)}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100 md:col-span-2"
-                placeholder="Unit and street address"
-                required
-              />
+              <div className="md:col-span-2">
+                <LocationAutocompleteInput
+                  value={editForm.addressLine}
+                  onChange={(value) => updateEditLocation("addressLine", value)}
+                  onResolve={previewEditLocationDetails}
+                  onSelect={applyEditLocationDetails}
+                  context={{
+                    city: editForm.city,
+                    state: editForm.state,
+                    country: editForm.country,
+                  }}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                  placeholder="Unit and street address"
+                  required
+                />
+              </div>
               <input
                 type="text"
                 list="edit-popular-cities"
@@ -576,15 +631,7 @@ function ViewListing() {
                   address={editForm.address}
                   latitude={editForm.latitude}
                   longitude={editForm.longitude}
-                  onLocationChange={({ address, latitude, longitude }) =>
-                    setEditForm((currentForm) => ({
-                      ...currentForm,
-                      address: address || currentForm.address,
-                      location: address || currentForm.location,
-                      latitude,
-                      longitude,
-                    }))
-                  }
+                  onLocationChange={applyEditLocationDetails}
                 />
               </div>
               <input

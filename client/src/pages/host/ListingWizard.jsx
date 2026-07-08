@@ -7,6 +7,7 @@ import CounterControl from "./CounterControl";
 import PriceSelector from "./PriceSelector";
 import WizardShell from "./WizardShell";
 import WizardVisual from "./WizardVisual";
+import LocationAutocompleteInput from "../../components/LocationAutocompleteInput";
 import { MapPicker } from "../../components/PropertyMap";
 import {
   popularCities,
@@ -125,6 +126,16 @@ const screens = [
 
 const stepNames = ["Tell us about your place", "Make it stand out", "Finish up"];
 const hasText = (value) => value.trim().length > 0;
+const buildAddress = (location) =>
+  [
+    location.addressLine,
+    location.city,
+    location.postalCode,
+    location.state,
+    location.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
 const optionIcons = {
   Apartment: "🏢",
@@ -293,12 +304,56 @@ function ListingWizard({ mode = "become-host" }) {
     }));
   };
 
-  const updateMapLocation = ({ address, latitude, longitude }) => {
+  const applyLocationDetails = (location) => {
+    setForm((currentForm) => {
+      const next = {
+        ...currentForm,
+        addressLine: location.addressLine || currentForm.addressLine,
+        city: location.city || currentForm.city,
+        state: location.state || currentForm.state,
+        postalCode: location.postalCode || currentForm.postalCode,
+        country: location.country || currentForm.country,
+        latitude: location.latitude ?? currentForm.latitude,
+        longitude: location.longitude ?? currentForm.longitude,
+      };
+
+      return {
+        ...next,
+        address: location.address || buildAddress(next),
+      };
+    });
+  };
+
+  const previewLocationDetails = (location) => {
+    setForm((currentForm) => {
+      const next = {
+        ...currentForm,
+        city: location.city || currentForm.city,
+        state: location.state || currentForm.state,
+        postalCode: location.postalCode || currentForm.postalCode,
+        country: location.country || currentForm.country,
+        latitude: location.latitude ?? currentForm.latitude,
+        longitude: location.longitude ?? currentForm.longitude,
+      };
+
+      return {
+        ...next,
+        address: location.address || buildAddress(next),
+      };
+    });
+  };
+
+  const updateMapLocation = (location) => {
     setForm((currentForm) => ({
       ...currentForm,
-      address: address || currentForm.address,
-      latitude,
-      longitude,
+      address: location.address || currentForm.address,
+      addressLine: location.addressLine || currentForm.addressLine,
+      city: location.city || currentForm.city,
+      state: location.state || currentForm.state,
+      postalCode: location.postalCode || currentForm.postalCode,
+      country: location.country || currentForm.country,
+      latitude: location.latitude,
+      longitude: location.longitude,
     }));
   };
 
@@ -506,13 +561,7 @@ function ListingWizard({ mode = "become-host" }) {
                   }
                 : {}),
             };
-            const address = [
-              next.addressLine,
-              next.city,
-              next.postalCode,
-              next.state,
-              next.country,
-            ].filter(Boolean).join(", ");
+            const address = buildAddress(next);
             setForm({ ...next, address });
           };
         return (
@@ -526,10 +575,16 @@ function ListingWizard({ mode = "become-host" }) {
               <div className="grid gap-4 rounded-3xl border border-white/80 bg-white/70 p-5 shadow-xl shadow-rose-100/40 sm:grid-cols-2">
                 <label className="sm:col-span-2">
                 <span className="mb-2 block text-sm font-bold text-slate-700">Unit and street address</span>
-                <input
-                  type="text"
+                <LocationAutocompleteInput
                   value={form.addressLine}
-                  onChange={(event) => updateLocation("addressLine", event.target.value)}
+                  onChange={(value) => updateLocation("addressLine", value)}
+                  onResolve={previewLocationDetails}
+                  onSelect={applyLocationDetails}
+                  context={{
+                    city: form.city,
+                    state: form.state,
+                    country: form.country,
+                  }}
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
                   placeholder="Unit 12, Jalan Example"
                   autoFocus

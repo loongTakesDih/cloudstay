@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { parseOsmLocation } from "../utils/locationLookup.js";
 
 const DEFAULT_CENTER = [3.139, 101.6869];
 const REVERSE_GEOCODER_URL =
@@ -90,7 +91,8 @@ function LeafletCanvas({
       ? [Number(initialPosition.latitude), Number(initialPosition.longitude)]
       : DEFAULT_CENTER;
     const map = L.map(containerRef.current, {
-      scrollWheelZoom: false,
+      scrollWheelZoom: true,
+      wheelPxPerZoomLevel: 90,
       zoomControl: true,
     }).setView(center, hasPosition ? 16 : 12);
 
@@ -152,10 +154,17 @@ function LeafletCanvas({
             const result = await response.json();
 
             if (selectionVersionRef.current === selectionVersion) {
+              const location = parseOsmLocation(result);
+
               onLocationChangeRef.current?.({
                 latitude: nextLatitude,
                 longitude: nextLongitude,
                 address: result.display_name || "",
+                addressLine: location.addressLine,
+                city: location.city,
+                state: location.state,
+                postalCode: location.postalCode,
+                country: location.country,
               });
             }
           } catch (error) {
