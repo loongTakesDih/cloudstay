@@ -9,9 +9,14 @@ import {
   uploadPropertyImage,
 } from "../../api/api";
 import AppHeader from "../../components/AppHeader";
+import LocationAutocompleteInput from "../../components/LocationAutocompleteInput";
 import { MapPicker } from "../../components/PropertyMap";
 import { useAuth } from "../../context/useAuth";
-import { popularCities } from "../../utils/searchOptions.js";
+import {
+  popularCities,
+  popularCityLocations,
+  validateMalaysiaPostalCode,
+} from "../../utils/searchOptions.js";
 
 const splitValues = (value) => {
   if (!value) return [];
@@ -44,6 +49,17 @@ const toDateInputValue = (value) => {
 
   return date.toISOString().slice(0, 10);
 };
+
+const buildAddress = (location) =>
+  [
+    location.addressLine,
+    location.city,
+    location.postalCode,
+    location.state,
+    location.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
 const buildEditForm = (listing) => ({
   title: listing.title || "",
@@ -107,6 +123,9 @@ function ViewListing() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const editPostalCodeError = editForm
+    ? validateMalaysiaPostalCode(editForm.postalCode, editForm.state)
+    : "";
 
   const filteredListings = useMemo(
     () =>
@@ -226,18 +245,65 @@ function ViewListing() {
 
   const updateEditLocation = (field, value) => {
     setEditForm((currentForm) => {
-      const next = { ...currentForm, [field]: value };
-      const address = [
-        next.addressLine,
-        next.city,
-        next.postalCode,
-        next.state,
-        next.country,
-      ].filter(Boolean).join(", ");
+      const cityLocation = field === "city" ? popularCityLocations[value] : null;
+      const next = {
+        ...currentForm,
+        [field]: value,
+        ...(cityLocation
+          ? {
+              state: cityLocation.state,
+              country: cityLocation.country,
+              latitude: cityLocation.latitude,
+              longitude: cityLocation.longitude,
+            }
+          : {}),
+      };
+      const address = buildAddress(next);
 
       return {
         ...next,
         address,
+        location: [next.city, next.state, next.country].filter(Boolean).join(", "),
+      };
+    });
+  };
+
+  const applyEditLocationDetails = (location) => {
+    setEditForm((currentForm) => {
+      const next = {
+        ...currentForm,
+        addressLine: location.addressLine || currentForm.addressLine,
+        city: location.city || currentForm.city,
+        state: location.state || currentForm.state,
+        postalCode: location.postalCode || currentForm.postalCode,
+        country: location.country || currentForm.country,
+        latitude: location.latitude ?? currentForm.latitude,
+        longitude: location.longitude ?? currentForm.longitude,
+      };
+
+      return {
+        ...next,
+        address: location.address || buildAddress(next),
+        location: [next.city, next.state, next.country].filter(Boolean).join(", "),
+      };
+    });
+  };
+
+  const previewEditLocationDetails = (location) => {
+    setEditForm((currentForm) => {
+      const next = {
+        ...currentForm,
+        city: location.city || currentForm.city,
+        state: location.state || currentForm.state,
+        postalCode: location.postalCode || currentForm.postalCode,
+        country: location.country || currentForm.country,
+        latitude: location.latitude ?? currentForm.latitude,
+        longitude: location.longitude ?? currentForm.longitude,
+      };
+
+      return {
+        ...next,
+        address: location.address || buildAddress(next),
         location: [next.city, next.state, next.country].filter(Boolean).join(", "),
       };
     });
@@ -299,6 +365,12 @@ function ViewListing() {
 
     setSaving(true);
     setError("");
+
+    if (editPostalCodeError) {
+      setSaving(false);
+      setError(editPostalCodeError);
+      return;
+    }
 
     try {
       const updatedListing = await updateListing(editingId, {
@@ -496,14 +568,22 @@ function ViewListing() {
                 placeholder="Price per night"
                 required
               />
-              <input
-                type="text"
-                value={editForm.addressLine}
-                onChange={(event) => updateEditLocation("addressLine", event.target.value)}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100 md:col-span-2"
-                placeholder="Unit and street address"
-                required
-              />
+              <div className="md:col-span-2">
+                <LocationAutocompleteInput
+                  value={editForm.addressLine}
+                  onChange={(value) => updateEditLocation("addressLine", value)}
+                  onResolve={previewEditLocationDetails}
+                  onSelect={applyEditLocationDetails}
+                  context={{
+                    city: editForm.city,
+                    state: editForm.state,
+                    country: editForm.country,
+                  }}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                  placeholder="Unit and street address"
+                  required
+                />
+              </div>
               <input
                 type="text"
                 list="edit-popular-cities"
@@ -526,11 +606,18 @@ function ViewListing() {
               />
               <input
                 type="text"
+                inputMode="numeric"
+                maxLength="5"
                 value={editForm.postalCode}
                 onChange={(event) => updateEditLocation("postalCode", event.target.value)}
                 className="rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none transition focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
                 placeholder="Postal code"
               />
+              {editPostalCodeError && (
+                <p className="-mt-2 text-xs font-bold text-red-600 md:col-span-2">
+                  {editPostalCodeError}
+                </p>
+              )}
               <input
                 type="text"
                 value={editForm.country}
@@ -544,15 +631,7 @@ function ViewListing() {
                   address={editForm.address}
                   latitude={editForm.latitude}
                   longitude={editForm.longitude}
-                  onLocationChange={({ address, latitude, longitude }) =>
-                    setEditForm((currentForm) => ({
-                      ...currentForm,
-                      address: address || currentForm.address,
-                      location: address || currentForm.location,
-                      latitude,
-                      longitude,
-                    }))
-                  }
+                  onLocationChange={applyEditLocationDetails}
                 />
               </div>
               <input
@@ -598,7 +677,7 @@ function ViewListing() {
               </button>
               <button
                 type="submit"
-                disabled={saving || photoUploading}
+                disabled={saving || photoUploading || Boolean(editPostalCodeError)}
                 className="rounded-full bg-slate-950 px-5 py-3 text-sm font-bold text-white shadow-lg shadow-slate-200 transition-all duration-300 hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
               >
                 {saving || photoUploading ? "Saving..." : "Save changes"}

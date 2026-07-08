@@ -47,60 +47,151 @@ const formatMemberSince = (value) => {
 
 function PropertyPhotoGallery({ imageUrl, imageUrls = [], title }) {
   const photos = imageUrls.length > 0 ? imageUrls : imageUrl ? [imageUrl] : [];
-  const [heroPhoto, ...secondaryPhotos] = photos;
+  const [selectedIndex, setSelectedIndex] = useState(null);
+  const visiblePhotos = photos.slice(0, 5);
+  const remainingCount = Math.max(0, photos.length - visiblePhotos.length);
+  const selectedPhoto = selectedIndex === null ? null : photos[selectedIndex];
+  const closeGallery = useCallback(() => setSelectedIndex(null), []);
+  const showPreviousPhoto = useCallback(() => {
+    setSelectedIndex((index) =>
+      index === null ? 0 : (index + photos.length - 1) % photos.length,
+    );
+  }, [photos.length]);
+  const showNextPhoto = useCallback(() => {
+    setSelectedIndex((index) =>
+      index === null ? 0 : (index + 1) % photos.length,
+    );
+  }, [photos.length]);
+
+  useEffect(() => {
+    if (selectedIndex === null) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") closeGallery();
+      if (event.key === "ArrowLeft") showPreviousPhoto();
+      if (event.key === "ArrowRight") showNextPhoto();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [closeGallery, selectedIndex, showNextPhoto, showPreviousPhoto]);
+
+  if (photos.length === 0) {
+    return (
+      <section className="flex aspect-[16/9] min-h-72 items-center justify-center rounded-3xl bg-gradient-to-br from-rose-50 via-white to-amber-50 text-sm font-bold text-slate-400">
+        Photos coming soon
+      </section>
+    );
+  }
 
   return (
-    <section className="grid gap-2 overflow-hidden rounded-3xl bg-slate-100 md:grid-cols-[2fr_1fr]">
-      <div className="aspect-[4/3] bg-slate-100 md:aspect-[16/10]">
-        {heroPhoto ? (
-          <img
-            src={heroPhoto}
-            alt={title}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center bg-gradient-to-br from-rose-50 via-white to-amber-50 text-sm font-bold text-slate-400">
-            Photos coming soon
-          </div>
-        )}
-      </div>
-      <div className="hidden grid-rows-2 gap-2 md:grid">
-        {[1, 2].map((item) => (
-          <div
-            key={item}
-            className="relative overflow-hidden bg-gradient-to-br from-slate-100 to-rose-50"
-          >
-            {secondaryPhotos[item - 1] ? (
-              <img
-                src={secondaryPhotos[item - 1]}
-                alt={`${title} ${item + 1}`}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center text-sm font-bold text-slate-400">
-                Photo placeholder
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-      {photos.length > 3 && (
-        <div className="grid gap-2 md:col-span-2 md:grid-cols-4">
-          {photos.slice(3).map((photo, index) => (
-            <div
-              key={photo}
-              className="aspect-[4/3] overflow-hidden bg-slate-100"
+    <>
+      <section className="grid gap-2 overflow-hidden rounded-3xl bg-slate-100 md:grid-cols-4 md:grid-rows-2">
+        {visiblePhotos.map((photo, index) => {
+          const isHero = index === 0;
+          const showMore = index === 4 && remainingCount > 0;
+
+          return (
+            <button
+              key={`${photo}-${index}`}
+              type="button"
+              onClick={() => setSelectedIndex(index)}
+              className={`group relative overflow-hidden bg-slate-100 text-left ${
+                isHero
+                  ? "aspect-[16/10] md:col-span-2 md:row-span-2 md:aspect-auto"
+                  : "aspect-[4/3]"
+              }`}
+              aria-label={`View photo ${index + 1} of ${photos.length}`}
             >
               <img
                 src={photo}
-                alt={`${title} ${index + 4}`}
-                className="h-full w-full object-cover"
+                alt={`${title} photo ${index + 1}`}
+                className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
               />
+              {showMore && (
+                <span className="absolute inset-0 grid place-items-center bg-slate-950/60 text-3xl font-bold text-white">
+                  +{remainingCount}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </section>
+
+      {selectedPhoto && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-950/95 p-4 text-white"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Listing photo gallery"
+        >
+          <div className="mx-auto flex h-full max-w-6xl flex-col">
+            <div className="flex items-center justify-between gap-3 py-2">
+              <p className="text-sm font-bold">
+                {selectedIndex + 1} / {photos.length}
+              </p>
+              <button
+                type="button"
+                onClick={closeGallery}
+                className="rounded-full bg-white/10 px-4 py-2 text-sm font-bold transition hover:bg-white/20"
+              >
+                Close
+              </button>
             </div>
-          ))}
+
+            <div className="relative grid min-h-0 flex-1 place-items-center">
+              {photos.length > 1 && (
+                <button
+                  type="button"
+                  onClick={showPreviousPhoto}
+                  className="absolute left-0 z-10 rounded-full bg-white/10 px-4 py-3 text-2xl font-bold transition hover:bg-white/20"
+                  aria-label="Previous photo"
+                >
+                  ‹
+                </button>
+              )}
+              <img
+                src={selectedPhoto}
+                alt={`${title} photo ${selectedIndex + 1}`}
+                className="max-h-full max-w-full rounded-2xl object-contain"
+              />
+              {photos.length > 1 && (
+                <button
+                  type="button"
+                  onClick={showNextPhoto}
+                  className="absolute right-0 z-10 rounded-full bg-white/10 px-4 py-3 text-2xl font-bold transition hover:bg-white/20"
+                  aria-label="Next photo"
+                >
+                  ›
+                </button>
+              )}
+            </div>
+
+            {photos.length > 1 && (
+              <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
+                {photos.map((photo, index) => (
+                  <button
+                    key={`${photo}-thumbnail-${index}`}
+                    type="button"
+                    onClick={() => setSelectedIndex(index)}
+                    className={`h-16 w-24 shrink-0 overflow-hidden rounded-xl border-2 ${
+                      index === selectedIndex ? "border-white" : "border-transparent opacity-60"
+                    }`}
+                    aria-label={`View photo ${index + 1}`}
+                  >
+                    <img
+                      src={photo}
+                      alt=""
+                      className="h-full w-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
-    </section>
+    </>
   );
 }
 

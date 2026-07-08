@@ -7,8 +7,13 @@ import CounterControl from "./CounterControl";
 import PriceSelector from "./PriceSelector";
 import WizardShell from "./WizardShell";
 import WizardVisual from "./WizardVisual";
+import LocationAutocompleteInput from "../../components/LocationAutocompleteInput";
 import { MapPicker } from "../../components/PropertyMap";
-import { popularCities } from "../../utils/searchOptions.js";
+import {
+  popularCities,
+  popularCityLocations,
+  validateMalaysiaPostalCode,
+} from "../../utils/searchOptions.js";
 
 const propertyCategories = [
   "Apartment",
@@ -121,6 +126,16 @@ const screens = [
 
 const stepNames = ["Tell us about your place", "Make it stand out", "Finish up"];
 const hasText = (value) => value.trim().length > 0;
+const buildAddress = (location) =>
+  [
+    location.addressLine,
+    location.city,
+    location.postalCode,
+    location.state,
+    location.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
 const optionIcons = {
   Apartment: "🏢",
@@ -221,6 +236,10 @@ function ListingWizard({ mode = "become-host" }) {
   const [photoUploading, setPhotoUploading] = useState(false);
 
   const currentScreen = screens[screenIndex];
+  const postalCodeError = validateMalaysiaPostalCode(
+    form.postalCode,
+    form.state,
+  );
   const datesValid =
     form.availableFrom &&
     form.availableTo &&
@@ -241,7 +260,8 @@ function ListingWizard({ mode = "become-host" }) {
           form.latitude != null &&
           form.longitude != null &&
           Number.isFinite(Number(form.latitude)) &&
-          Number.isFinite(Number(form.longitude))
+          Number.isFinite(Number(form.longitude)) &&
+          !postalCodeError
         );
       case "basics":
         return (
@@ -262,7 +282,7 @@ function ListingWizard({ mode = "become-host" }) {
       default:
         return true;
     }
-  }, [currentScreen.id, datesValid, form]);
+  }, [currentScreen.id, datesValid, form, postalCodeError]);
 
   const progress = (screenIndex + 1) / screens.length;
   const isFinal = currentScreen.id === "done";
@@ -284,12 +304,56 @@ function ListingWizard({ mode = "become-host" }) {
     }));
   };
 
-  const updateMapLocation = ({ address, latitude, longitude }) => {
+  const applyLocationDetails = (location) => {
+    setForm((currentForm) => {
+      const next = {
+        ...currentForm,
+        addressLine: location.addressLine || currentForm.addressLine,
+        city: location.city || currentForm.city,
+        state: location.state || currentForm.state,
+        postalCode: location.postalCode || currentForm.postalCode,
+        country: location.country || currentForm.country,
+        latitude: location.latitude ?? currentForm.latitude,
+        longitude: location.longitude ?? currentForm.longitude,
+      };
+
+      return {
+        ...next,
+        address: location.address || buildAddress(next),
+      };
+    });
+  };
+
+  const previewLocationDetails = (location) => {
+    setForm((currentForm) => {
+      const next = {
+        ...currentForm,
+        city: location.city || currentForm.city,
+        state: location.state || currentForm.state,
+        postalCode: location.postalCode || currentForm.postalCode,
+        country: location.country || currentForm.country,
+        latitude: location.latitude ?? currentForm.latitude,
+        longitude: location.longitude ?? currentForm.longitude,
+      };
+
+      return {
+        ...next,
+        address: location.address || buildAddress(next),
+      };
+    });
+  };
+
+  const updateMapLocation = (location) => {
     setForm((currentForm) => ({
       ...currentForm,
-      address: address || currentForm.address,
-      latitude,
-      longitude,
+      address: location.address || currentForm.address,
+      addressLine: location.addressLine || currentForm.addressLine,
+      city: location.city || currentForm.city,
+      state: location.state || currentForm.state,
+      postalCode: location.postalCode || currentForm.postalCode,
+      country: location.country || currentForm.country,
+      latitude: location.latitude,
+      longitude: location.longitude,
     }));
   };
 
@@ -377,7 +441,7 @@ function ListingWizard({ mode = "become-host" }) {
     setError("");
 
     if (!currentScreenValid) {
-      setError("Complete this step before continuing.");
+      setError(postalCodeError || "Complete this step before continuing.");
       return;
     }
 
@@ -484,14 +548,20 @@ function ListingWizard({ mode = "become-host" }) {
       case "address":
         {
           const updateLocation = (field, value) => {
-            const next = { ...form, [field]: value };
-            const address = [
-              next.addressLine,
-              next.city,
-              next.postalCode,
-              next.state,
-              next.country,
-            ].filter(Boolean).join(", ");
+            const cityLocation = field === "city" ? popularCityLocations[value] : null;
+            const next = {
+              ...form,
+              [field]: value,
+              ...(cityLocation
+                ? {
+                    state: cityLocation.state,
+                    country: cityLocation.country,
+                    latitude: cityLocation.latitude,
+                    longitude: cityLocation.longitude,
+                  }
+                : {}),
+            };
+            const address = buildAddress(next);
             setForm({ ...next, address });
           };
         return (
@@ -505,10 +575,16 @@ function ListingWizard({ mode = "become-host" }) {
               <div className="grid gap-4 rounded-3xl border border-white/80 bg-white/70 p-5 shadow-xl shadow-rose-100/40 sm:grid-cols-2">
                 <label className="sm:col-span-2">
                 <span className="mb-2 block text-sm font-bold text-slate-700">Unit and street address</span>
-                <input
-                  type="text"
+                <LocationAutocompleteInput
                   value={form.addressLine}
-                  onChange={(event) => updateLocation("addressLine", event.target.value)}
+                  onChange={(value) => updateLocation("addressLine", value)}
+                  onResolve={previewLocationDetails}
+                  onSelect={applyLocationDetails}
+                  context={{
+                    city: form.city,
+                    state: form.state,
+                    country: form.country,
+                  }}
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
                   placeholder="Unit 12, Jalan Example"
                   autoFocus
@@ -542,11 +618,18 @@ function ListingWizard({ mode = "become-host" }) {
                 <span className="mb-2 block text-sm font-bold text-slate-700">Postal code</span>
                 <input
                   type="text"
+                  inputMode="numeric"
+                  maxLength="5"
                   value={form.postalCode}
                   onChange={(event) => updateLocation("postalCode", event.target.value)}
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
                   placeholder="50000"
                 />
+                {postalCodeError && (
+                  <span className="mt-2 block text-xs font-bold text-red-600">
+                    {postalCodeError}
+                  </span>
+                )}
               </label>
               <label>
                 <span className="mb-2 block text-sm font-bold text-slate-700">Country</span>

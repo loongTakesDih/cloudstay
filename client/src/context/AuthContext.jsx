@@ -93,6 +93,14 @@ export function AuthProvider({ children }) {
     return saveAuth(response.data);
   };
 
+  const loginWithGoogle = async (credential) => {
+    const response = await api.post("/auth/google", {
+      credential,
+    });
+
+    return saveAuth(response.data);
+  };
+
   const becomeHost = async () => {
     return "/become-host";
   };
@@ -162,6 +170,7 @@ export function AuthProvider({ children }) {
         token,
         loading,
         login,
+        loginWithGoogle,
         register,
         becomeHost,
         completeHostOnboarding,

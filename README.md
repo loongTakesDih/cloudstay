@@ -22,6 +22,27 @@ cloudstay/
 bleh
 
 
+To initiate Server:
+
+cd server
+dotnet ef database update
+dotnet run
+
+If dotnet ef is missing:
+dotnet tool install --global dotnet-ef
+dotnet ef database update
+
+///////////////////////////////////////
+To initate Client:
+cd client 
+npm run build
+npm run lint
+npm run dev
+
+
+
+
+
 To use S3, first must add these credentials in cd server:
 
 {

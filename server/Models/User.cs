@@ -10,6 +10,14 @@ public class User
 
     public string PasswordHash { get; set; } = string.Empty;
 
+    public string AuthProvider { get; set; } = "Password";
+
+    public string? GoogleSubjectId { get; set; }
+
+    public bool EmailVerified { get; set; } = false;
+
+    public string? ProfilePictureUrl { get; set; }
+
     public string Role { get; set; } = "User";
 
     public bool IsHost { get; set; } = false;

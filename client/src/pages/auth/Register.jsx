@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import GoogleSignInButton from "../../components/GoogleSignInButton";
 import MarketplaceHeader from "../../components/MarketplaceHeader";
 import { useAuth } from "../../context/useAuth";
 
 function Register() {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { loginWithGoogle, register } = useAuth();
 
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
@@ -13,6 +14,23 @@ function Register() {
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const handleGoogleCredential = useCallback(
+    async (credential) => {
+      setError("");
+      setLoading(true);
+
+      try {
+        const redirectPath = await loginWithGoogle(credential);
+        navigate(redirectPath);
+      } catch (err) {
+        setError(err.response?.data?.message || "Google sign-up failed.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [loginWithGoogle, navigate],
+  );
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -123,6 +141,21 @@ function Register() {
               {loading ? "Creating account..." : "Create account"}
             </button>
           </form>
+
+          <div className="my-6 flex items-center gap-3">
+            <div className="h-px flex-1 bg-slate-200" />
+            <span className="text-xs font-bold uppercase text-slate-400">
+              or
+            </span>
+            <div className="h-px flex-1 bg-slate-200" />
+          </div>
+
+          <GoogleSignInButton
+            disabled={loading}
+            onCredential={handleGoogleCredential}
+            onError={setError}
+            text="signup_with"
+          />
 
           <p className="mt-6 text-center text-sm text-slate-600">
             Already have an account?{" "}
