@@ -50,6 +50,38 @@ public class Property
 
     public string? SafetyFeatures { get; set; }
 
+    public string? HouseRulesCheckInTime { get; set; }
+
+    public string? HouseRulesCheckoutTime { get; set; }
+
+    public bool? HouseRulesPetsAllowed { get; set; }
+
+    public bool? HouseRulesSmokingAllowed { get; set; }
+
+    public bool? HouseRulesPartiesAllowed { get; set; }
+
+    public string? HouseRulesQuietHours { get; set; }
+
+    public string? HouseRulesNotes { get; set; }
+
+    public bool? SafetySmokeAlarm { get; set; }
+
+    public bool? SafetyCarbonMonoxideAlarm { get; set; }
+
+    public bool? SafetySecurityCameras { get; set; }
+
+    public string? SafetyPropertyWarnings { get; set; }
+
+    public string? SafetyNotes { get; set; }
+
+    public string? CancellationPolicyType { get; set; }
+
+    public string? CancellationFreeCancellationPeriod { get; set; }
+
+    public string? CancellationPartialRefundRule { get; set; }
+
+    public string? CancellationNotes { get; set; }
+
     public DateTime? AvailableFrom { get; set; }
 
     public DateTime? AvailableTo { get; set; }

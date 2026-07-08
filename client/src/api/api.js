@@ -50,6 +50,11 @@ export const getMe = async () => {
   return response.data;
 };
 
+export const updateMyProfile = async (payload) => {
+  const response = await api.put("/auth/me/profile", payload);
+  return response.data;
+};
+
 // ==========================================
 // HOSTING & PROPERTIES
 // ==========================================

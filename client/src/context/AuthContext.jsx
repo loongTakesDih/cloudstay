@@ -22,6 +22,18 @@ const toBoolean = (value) => {
   return Boolean(value);
 };
 
+const getField = (source, camelKey, pascalKey = camelKey[0].toUpperCase() + camelKey.slice(1)) =>
+  source?.[camelKey] ?? source?.[pascalKey] ?? "";
+
+const getInterests = (source) => {
+  const value = source?.interests ?? source?.Interests;
+  if (Array.isArray(value)) return value;
+  if (typeof value === "string") {
+    return value.split(",").map((item) => item.trim()).filter(Boolean);
+  }
+  return [];
+};
+
 const normalizeAuthResponse = (data) => {
   const source = data?.user ?? data;
 
@@ -41,6 +53,21 @@ const normalizeAuthResponse = (data) => {
       role: source.role ?? source.Role ?? "User",
       isHost: toBoolean(source.isHost ?? source.IsHost),
       createdAt: source.createdAt ?? source.CreatedAt ?? source.created_at,
+      dreamDestination: getField(source, "dreamDestination", "DreamDestination"),
+      work: getField(source, "work", "Work"),
+      uselessSkill: getField(source, "uselessSkill", "UselessSkill"),
+      pets: getField(source, "pets", "Pets"),
+      birthDecade: getField(source, "birthDecade", "BirthDecade"),
+      school: getField(source, "school", "School"),
+      spendTooMuchTime: getField(source, "spendTooMuchTime", "SpendTooMuchTime"),
+      funFact: getField(source, "funFact", "FunFact"),
+      favoriteHighSchoolSong: getField(source, "favoriteHighSchoolSong", "FavoriteHighSchoolSong"),
+      biographyTitle: getField(source, "biographyTitle", "BiographyTitle"),
+      obsessedWith: getField(source, "obsessedWith", "ObsessedWith"),
+      languages: getField(source, "languages", "Languages"),
+      livesIn: getField(source, "livesIn", "LivesIn"),
+      aboutMe: getField(source, "aboutMe", "AboutMe"),
+      interests: getInterests(source),
     },
   };
 };

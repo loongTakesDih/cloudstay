@@ -45,6 +45,17 @@ const formatMemberSince = (value) => {
   }).format(date);
 };
 
+const yesNo = (value, yesLabel, noLabel, fallback = "Ask the host for details") => {
+  if (value === true) return yesLabel;
+  if (value === false) return noLabel;
+  return fallback;
+};
+
+const compactList = (items) =>
+  items
+    .map(([label, value]) => ({ label, value }))
+    .filter((item) => item.value !== null && item.value !== undefined && String(item.value).trim() !== "");
+
 function PropertyPhotoGallery({ imageUrl, imageUrls = [], title }) {
   const photos = imageUrls.length > 0 ? imageUrls : imageUrl ? [imageUrl] : [];
   const [selectedIndex, setSelectedIndex] = useState(null);
@@ -336,28 +347,66 @@ function LocationSection({ listing }) {
 }
 
 function ThingsToKnow({ listing }) { 
+  const [expanded, setExpanded] = useState(false);
   const safetyFeatures = splitValues(listing.safetyFeatures);
+  const houseRules = compactList([
+    ["Check-in", listing.houseRulesCheckInTime || "Ask the host for the check-in time"],
+    ["Checkout", listing.houseRulesCheckoutTime || "Ask the host for the checkout time"],
+    ["Pets", yesNo(listing.houseRulesPetsAllowed, "Pets allowed", "No pets")],
+    ["Smoking", yesNo(listing.houseRulesSmokingAllowed, "Smoking allowed", "No smoking")],
+    ["Parties", yesNo(listing.houseRulesPartiesAllowed, "Parties allowed", "No parties or events")],
+    ["Quiet hours", listing.houseRulesQuietHours],
+    ["Notes", listing.houseRulesNotes],
+  ]);
+  const safety = compactList([
+    ["Smoke alarm", yesNo(listing.safetySmokeAlarm, "Smoke alarm installed", "No smoke alarm reported")],
+    ["Carbon monoxide alarm", yesNo(listing.safetyCarbonMonoxideAlarm, "Carbon monoxide alarm installed", "No carbon monoxide alarm reported")],
+    ["Cameras", yesNo(listing.safetySecurityCameras, "Exterior/security cameras present", "No cameras reported")],
+    ["Warnings", listing.safetyPropertyWarnings],
+    ["Safety notes", listing.safetyNotes],
+    ["Listed safety features", safetyFeatures.join(", ")],
+  ]);
+  const cancellation = compactList([
+    ["Policy", listing.cancellationPolicyType || "Ask the host for cancellation terms"],
+    ["Free cancellation", listing.cancellationFreeCancellationPeriod],
+    ["Partial refund", listing.cancellationPartialRefundRule],
+    ["Notes", listing.cancellationNotes],
+  ]);
+  const visibleCount = expanded ? 7 : 4;
+  const groups = [
+    ["House rules", houseRules],
+    ["Safety and property", safety],
+    ["Cancellation policy", cancellation],
+  ];
+  const hasHiddenRows = groups.some(([, values]) => values.length > visibleCount);
+
   return (
-    <section className="py-6">
+    <section className="py-8">
       <h2 className="text-xl font-bold text-slate-950">Things to know</h2>
-      <div className="mt-5 grid gap-4 md:grid-cols-3">
-        <div>
-          <h3 className="text-sm font-bold text-slate-950">House rules</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            Maximum {listing.guestCount || 0} guests. Booking and check-in details coming soon.
-          </p>
-        </div>
-        <div>
-          <h3 className="text-sm font-bold text-slate-950">Safety</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600">
-            {safetyFeatures.length > 0 ? safetyFeatures.join(", ") : "Safety details coming soon."}
-          </p>
-        </div>
-        <div>
-          <h3 className="text-sm font-bold text-slate-950">Cancellation policy</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-600">Flexible cancellation placeholder.</p>
-        </div>
+      <div className="mt-5 grid gap-8 md:grid-cols-3">
+        {groups.map(([title, values]) => (
+          <div key={title}>
+            <h3 className="text-sm font-bold text-slate-950">{title}</h3>
+            <div className="mt-3 space-y-3">
+              {values.slice(0, visibleCount).map((item) => (
+                <div key={`${title}-${item.label}`}>
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{item.label}</p>
+                  <p className="mt-1 text-sm leading-6 text-slate-700">{item.value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
+      {hasHiddenRows && (
+        <button
+          type="button"
+          onClick={() => setExpanded((current) => !current)}
+          className="mt-6 text-sm font-bold text-slate-950 underline underline-offset-4"
+        >
+          {expanded ? "Show less" : "Learn more"}
+        </button>
+      )}
     </section>
   );
 }
@@ -541,7 +590,7 @@ function PropertyBookingCard({ listing, user }) {
   
   return (
     <>
-      <aside className="rounded-3xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/70 lg:sticky lg:top-6">
+      <aside className="h-fit self-start rounded-3xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/70 lg:sticky lg:top-6">
         <p className="text-2xl font-bold text-slate-950">
           RM {listing.pricePerNight} <span className="text-sm font-semibold text-slate-500">night</span>
         </p>
@@ -762,7 +811,7 @@ function PropertyDetails() {
         }
       />
 
-      <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-10">
         <div className="grid gap-5">
           <HostControlBanner
             listing={listing}
@@ -808,8 +857,8 @@ function PropertyDetails() {
             title={listing.title}
           />
 
-          <section className="grid gap-8 lg:grid-cols-[1fr_340px]">
-            <div className="rounded-3xl bg-white p-6 shadow-sm">
+          <section className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_380px]">
+            <div className="min-w-0">
               <PropertySummary listing={listing} />
               <HostInfoCard host={listing.host} />
               <ListingHighlights listing={listing} />

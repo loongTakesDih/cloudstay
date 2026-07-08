@@ -23,6 +23,7 @@ const propertyCategories = [
   "Cabin", "Guesthouse", "Unique Stay", "Other",
 ];
 const placeTypes = ["Entire place", "A room", "Shared room"];
+const cancellationTypes = ["Flexible", "Moderate", "Strict"];
 const amenityGroups = [
   {
     id: "unitFeatures",
@@ -76,10 +77,53 @@ const buildEditForm = (listing) => ({
   unitFeatures: splitValues(listing.unitFeatures),
   propertyFacilities: splitValues(listing.propertyFacilities),
   safetyFeatures: splitValues(listing.safetyFeatures),
+  houseRulesCheckInTime: listing.houseRulesCheckInTime || "",
+  houseRulesCheckoutTime: listing.houseRulesCheckoutTime || "",
+  houseRulesPetsAllowed: listing.houseRulesPetsAllowed ?? null,
+  houseRulesSmokingAllowed: listing.houseRulesSmokingAllowed ?? null,
+  houseRulesPartiesAllowed: listing.houseRulesPartiesAllowed ?? null,
+  houseRulesQuietHours: listing.houseRulesQuietHours || "",
+  houseRulesNotes: listing.houseRulesNotes || "",
+  safetySmokeAlarm: listing.safetySmokeAlarm ?? null,
+  safetyCarbonMonoxideAlarm: listing.safetyCarbonMonoxideAlarm ?? null,
+  safetySecurityCameras: listing.safetySecurityCameras ?? null,
+  safetyPropertyWarnings: listing.safetyPropertyWarnings || "",
+  safetyNotes: listing.safetyNotes || "",
+  cancellationPolicyType: listing.cancellationPolicyType || "",
+  cancellationFreeCancellationPeriod: listing.cancellationFreeCancellationPeriod || "",
+  cancellationPartialRefundRule: listing.cancellationPartialRefundRule || "",
+  cancellationNotes: listing.cancellationNotes || "",
   availableFrom: toDateValue(listing.availableFrom),
   availableTo: toDateValue(listing.availableTo),
   isAvailable: listing.isAvailable ?? true,
 });
+
+function YesNoField({ label, value, onChange }) {
+  return (
+    <fieldset>
+      <legend className="mb-2 block text-sm font-bold">{label}</legend>
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          [true, "Yes"],
+          [false, "No"],
+        ].map(([optionValue, optionLabel]) => (
+          <button
+            key={optionLabel}
+            type="button"
+            onClick={() => onChange(optionValue)}
+            className={`rounded-2xl border px-4 py-3 text-sm font-bold ${
+              value === optionValue
+                ? "border-rose-500 bg-rose-50 text-rose-700"
+                : "border-slate-200 text-slate-700"
+            }`}
+          >
+            {optionLabel}
+          </button>
+        ))}
+      </div>
+    </fieldset>
+  );
+}
 
 function EmptyState({ title, message }) {
   return (
@@ -189,6 +233,26 @@ function ListingEditorModal({ listing, onClose, onSaved }) {
     event.preventDefault();
     setSaving(true);
     setError("");
+    const thingsToKnowComplete =
+      form.houseRulesCheckInTime.trim() &&
+      form.houseRulesCheckoutTime.trim() &&
+      form.houseRulesPetsAllowed !== null &&
+      form.houseRulesSmokingAllowed !== null &&
+      form.houseRulesPartiesAllowed !== null &&
+      form.safetySmokeAlarm !== null &&
+      form.safetyCarbonMonoxideAlarm !== null &&
+      form.safetySecurityCameras !== null &&
+      form.cancellationPolicyType.trim() &&
+      form.cancellationFreeCancellationPeriod.trim() &&
+      form.cancellationPartialRefundRule.trim();
+
+    if (!thingsToKnowComplete) {
+      setSaving(false);
+      setSection("things");
+      setError("Complete Things to know before saving this listing.");
+      return;
+    }
+
     const {
       legacyAddress,
       ...editableFields
@@ -240,6 +304,7 @@ function ListingEditorModal({ listing, onClose, onSaved }) {
             ["location", "Location"],
             ["details", "Details & amenities"],
             ["availability", "Availability & price"],
+            ["things", "Things to know"],
           ].map(([id, label]) => (
             <button key={id} type="button" onClick={() => setSection(id)} className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold ${section === id ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100"}`}>
               {label}
@@ -316,6 +381,44 @@ function ListingEditorModal({ listing, onClose, onSaved }) {
                     </fieldset>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {section === "things" && (
+              <div className="space-y-7">
+                <section>
+                  <h3 className="font-bold">House rules</h3>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <label><span className="mb-2 block text-sm font-bold">Check-in time</span><input required value={form.houseRulesCheckInTime} onChange={(event) => update("houseRulesCheckInTime", event.target.value)} placeholder="After 3:00 PM" className="w-full rounded-2xl border border-slate-300 px-4 py-3" /></label>
+                    <label><span className="mb-2 block text-sm font-bold">Checkout time</span><input required value={form.houseRulesCheckoutTime} onChange={(event) => update("houseRulesCheckoutTime", event.target.value)} placeholder="Before 11:00 AM" className="w-full rounded-2xl border border-slate-300 px-4 py-3" /></label>
+                    <YesNoField label="Pets allowed" value={form.houseRulesPetsAllowed} onChange={(value) => update("houseRulesPetsAllowed", value)} />
+                    <YesNoField label="Smoking allowed" value={form.houseRulesSmokingAllowed} onChange={(value) => update("houseRulesSmokingAllowed", value)} />
+                    <YesNoField label="Parties allowed" value={form.houseRulesPartiesAllowed} onChange={(value) => update("houseRulesPartiesAllowed", value)} />
+                    <label><span className="mb-2 block text-sm font-bold">Quiet hours</span><input value={form.houseRulesQuietHours} onChange={(event) => update("houseRulesQuietHours", event.target.value)} placeholder="10:00 PM to 7:00 AM" className="w-full rounded-2xl border border-slate-300 px-4 py-3" /></label>
+                    <label className="sm:col-span-2"><span className="mb-2 block text-sm font-bold">Extra house rule notes</span><textarea rows="3" value={form.houseRulesNotes} onChange={(event) => update("houseRulesNotes", event.target.value)} placeholder="Shoes off indoors, shared-space rules, or check-in notes." className="w-full resize-none rounded-2xl border border-slate-300 px-4 py-3" /></label>
+                  </div>
+                </section>
+
+                <section className="border-t border-slate-200 pt-6">
+                  <h3 className="font-bold">Safety and property</h3>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <YesNoField label="Smoke alarm" value={form.safetySmokeAlarm} onChange={(value) => update("safetySmokeAlarm", value)} />
+                    <YesNoField label="Carbon monoxide alarm" value={form.safetyCarbonMonoxideAlarm} onChange={(value) => update("safetyCarbonMonoxideAlarm", value)} />
+                    <YesNoField label="Exterior/security cameras" value={form.safetySecurityCameras} onChange={(value) => update("safetySecurityCameras", value)} />
+                    <label><span className="mb-2 block text-sm font-bold">Property warnings</span><input value={form.safetyPropertyWarnings} onChange={(event) => update("safetyPropertyWarnings", event.target.value)} placeholder="Pool, balcony, stairs, or other warnings" className="w-full rounded-2xl border border-slate-300 px-4 py-3" /></label>
+                    <label className="sm:col-span-2"><span className="mb-2 block text-sm font-bold">Extra safety notes</span><textarea rows="3" value={form.safetyNotes} onChange={(event) => update("safetyNotes", event.target.value)} placeholder="Anything guests should know before arrival." className="w-full resize-none rounded-2xl border border-slate-300 px-4 py-3" /></label>
+                  </div>
+                </section>
+
+                <section className="border-t border-slate-200 pt-6">
+                  <h3 className="font-bold">Cancellation policy</h3>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    <label><span className="mb-2 block text-sm font-bold">Cancellation type</span><select required value={form.cancellationPolicyType} onChange={(event) => update("cancellationPolicyType", event.target.value)} className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3"><option value="">Choose policy</option>{cancellationTypes.map((item) => <option key={item}>{item}</option>)}</select></label>
+                    <label><span className="mb-2 block text-sm font-bold">Free cancellation period</span><input required value={form.cancellationFreeCancellationPeriod} onChange={(event) => update("cancellationFreeCancellationPeriod", event.target.value)} placeholder="Until 48 hours before check-in" className="w-full rounded-2xl border border-slate-300 px-4 py-3" /></label>
+                    <label><span className="mb-2 block text-sm font-bold">Partial refund rule</span><input required value={form.cancellationPartialRefundRule} onChange={(event) => update("cancellationPartialRefundRule", event.target.value)} placeholder="50% refund after the free cancellation period" className="w-full rounded-2xl border border-slate-300 px-4 py-3" /></label>
+                    <label><span className="mb-2 block text-sm font-bold">Extra cancellation notes</span><input value={form.cancellationNotes} onChange={(event) => update("cancellationNotes", event.target.value)} placeholder="Cleaning fee or special case notes" className="w-full rounded-2xl border border-slate-300 px-4 py-3" /></label>
+                  </div>
+                </section>
               </div>
             )}
 

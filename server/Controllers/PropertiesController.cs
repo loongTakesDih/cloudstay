@@ -43,36 +43,42 @@ public class PropertiesController : ControllerBase
     }
     
     [HttpGet]
-        public async Task<ActionResult<IEnumerable<PropertyResponseDto>>> GetPublicProperties()
+    public async Task<ActionResult<IEnumerable<PropertyResponseDto>>> GetPublicProperties()
+    {
+        var today = DateTime.UtcNow.Date;
+        var properties = await _context.Properties
+            .AsNoTracking()
+            .Where(property =>
+                property.IsListed &&
+                property.IsAvailable &&
+                (property.AvailableTo == null ||
+                 property.AvailableTo > today) &&
+                !_context.Bookings.Any(booking =>
+                    booking.PropertyId == property.Id &&
+                    booking.Status == "Accepted" &&
+                    booking.CheckIn <= today &&
+                    booking.CheckOut > today))
+            .OrderByDescending(property => property.CreatedAt)
+            .ToListAsync();
+
+        var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        int? userId = null;
+
+        if (int.TryParse(userIdString, out int parsedId))
         {
-            var properties = await _context.Properties
-                .Where(property =>
-                    property.IsListed &&
-                    property.IsAvailable &&
-                    (property.AvailableTo == null ||
-                     property.AvailableTo > DateTime.UtcNow.Date) &&
-                    !_context.Bookings.Any(booking =>
-                        booking.PropertyId == property.Id &&
-                        booking.Status == "Accepted"))
-                .OrderByDescending(property => property.CreatedAt)
-                .ToListAsync();
-
-            var userIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            int? userId = null;
-
-            if (int.TryParse(userIdString, out int parsedId)) 
-            {
-                userId = parsedId;
-            }
-
-            return Ok(await MapPropertiesAsync(properties, userId));
+            userId = parsedId;
         }
+
+        return Ok(await MapPropertiesAsync(properties, userId));
+    }
 
 
     [HttpGet("{id:int}")]
     public async Task<ActionResult<PropertyResponseDto>> GetProperty(int id)
     {
-        var property = await _context.Properties.FindAsync(id);
+        var property = await _context.Properties
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == id);
 
         if (property == null)
         {
@@ -91,6 +97,7 @@ public class PropertiesController : ControllerBase
     public async Task<ActionResult> GetPropertyAvailability(int id)
     {
         var property = await _context.Properties
+            .AsNoTracking()
             .Where(item => item.Id == id)
             .Select(item => new
             {
@@ -202,6 +209,7 @@ public class PropertiesController : ControllerBase
         }
 
         var properties = await _context.Properties
+            .AsNoTracking()
             .Where(property => property.HostId == userId.Value)
             .OrderByDescending(property => property.CreatedAt)
             .ToListAsync();
@@ -515,6 +523,33 @@ public class PropertiesController : ControllerBase
             return "Available To cannot be earlier than Available From.";
         }
 
+        if (string.IsNullOrWhiteSpace(request.HouseRulesCheckInTime) ||
+            string.IsNullOrWhiteSpace(request.HouseRulesCheckoutTime))
+        {
+            return "Check-in and checkout times are required.";
+        }
+
+        if (request.HouseRulesPetsAllowed == null ||
+            request.HouseRulesSmokingAllowed == null ||
+            request.HouseRulesPartiesAllowed == null)
+        {
+            return "Confirm pets, smoking, and parties house rules.";
+        }
+
+        if (request.SafetySmokeAlarm == null ||
+            request.SafetyCarbonMonoxideAlarm == null ||
+            request.SafetySecurityCameras == null)
+        {
+            return "Confirm the safety alarm and camera details.";
+        }
+
+        if (string.IsNullOrWhiteSpace(request.CancellationPolicyType) ||
+            string.IsNullOrWhiteSpace(request.CancellationFreeCancellationPeriod) ||
+            string.IsNullOrWhiteSpace(request.CancellationPartialRefundRule))
+        {
+            return "Cancellation policy details are required.";
+        }
+
         return null;
     }
 
@@ -604,6 +639,22 @@ public class PropertiesController : ControllerBase
         property.UnitFeatures = JoinSelections(request.UnitFeatures);
         property.PropertyFacilities = JoinSelections(request.PropertyFacilities);
         property.SafetyFeatures = JoinSelections(request.SafetyFeatures);
+        property.HouseRulesCheckInTime = EmptyToNull(request.HouseRulesCheckInTime ?? string.Empty);
+        property.HouseRulesCheckoutTime = EmptyToNull(request.HouseRulesCheckoutTime ?? string.Empty);
+        property.HouseRulesPetsAllowed = request.HouseRulesPetsAllowed;
+        property.HouseRulesSmokingAllowed = request.HouseRulesSmokingAllowed;
+        property.HouseRulesPartiesAllowed = request.HouseRulesPartiesAllowed;
+        property.HouseRulesQuietHours = EmptyToNull(request.HouseRulesQuietHours ?? string.Empty);
+        property.HouseRulesNotes = EmptyToNull(request.HouseRulesNotes ?? string.Empty);
+        property.SafetySmokeAlarm = request.SafetySmokeAlarm;
+        property.SafetyCarbonMonoxideAlarm = request.SafetyCarbonMonoxideAlarm;
+        property.SafetySecurityCameras = request.SafetySecurityCameras;
+        property.SafetyPropertyWarnings = EmptyToNull(request.SafetyPropertyWarnings ?? string.Empty);
+        property.SafetyNotes = EmptyToNull(request.SafetyNotes ?? string.Empty);
+        property.CancellationPolicyType = EmptyToNull(request.CancellationPolicyType ?? string.Empty);
+        property.CancellationFreeCancellationPeriod = EmptyToNull(request.CancellationFreeCancellationPeriod ?? string.Empty);
+        property.CancellationPartialRefundRule = EmptyToNull(request.CancellationPartialRefundRule ?? string.Empty);
+        property.CancellationNotes = EmptyToNull(request.CancellationNotes ?? string.Empty);
         property.AvailableFrom = ToUtcDate(request.AvailableFrom);
         property.AvailableTo = ToUtcDate(request.AvailableTo);
         property.IsAvailable = request.IsAvailable;
@@ -615,12 +666,14 @@ public class PropertiesController : ControllerBase
         int? currentUserId = null)
     {
         var imageUrls = await _context.PropertyImages
+            .AsNoTracking()
             .Where(image => image.PropertyId == property.Id)
             .OrderBy(image => image.Id)
             .Select(image => image.ImageUrl)
             .ToListAsync();
 
         var host = await _context.Users
+            .AsNoTracking()
             .Where(user => user.Id == property.HostId)
             .Select(user => new PropertyHostSummaryDto
             {
@@ -640,7 +693,14 @@ public class PropertiesController : ControllerBase
     {
         var propertyIds = properties.Select(property => property.Id).ToList();
         var hostIds = properties.Select(property => property.HostId).Distinct().ToList();
+
+        if (propertyIds.Count == 0)
+        {
+            return [];
+        }
+
         var images = await _context.PropertyImages
+            .AsNoTracking()
             .Where(image => propertyIds.Contains(image.PropertyId))
             .OrderBy(image => image.Id)
             .ToListAsync();
@@ -652,6 +712,7 @@ public class PropertiesController : ControllerBase
                 group => group.Select(image => image.ImageUrl).ToList());
 
         var hosts = await _context.Users
+            .AsNoTracking()
             .Where(user => hostIds.Contains(user.Id))
             .Select(user => new PropertyHostSummaryDto
             {
@@ -709,6 +770,22 @@ internal static PropertyResponseDto MapProperty(
             UnitFeatures = property.UnitFeatures,
             PropertyFacilities = property.PropertyFacilities,
             SafetyFeatures = property.SafetyFeatures,
+            HouseRulesCheckInTime = property.HouseRulesCheckInTime,
+            HouseRulesCheckoutTime = property.HouseRulesCheckoutTime,
+            HouseRulesPetsAllowed = property.HouseRulesPetsAllowed,
+            HouseRulesSmokingAllowed = property.HouseRulesSmokingAllowed,
+            HouseRulesPartiesAllowed = property.HouseRulesPartiesAllowed,
+            HouseRulesQuietHours = property.HouseRulesQuietHours,
+            HouseRulesNotes = property.HouseRulesNotes,
+            SafetySmokeAlarm = property.SafetySmokeAlarm,
+            SafetyCarbonMonoxideAlarm = property.SafetyCarbonMonoxideAlarm,
+            SafetySecurityCameras = property.SafetySecurityCameras,
+            SafetyPropertyWarnings = property.SafetyPropertyWarnings,
+            SafetyNotes = property.SafetyNotes,
+            CancellationPolicyType = property.CancellationPolicyType,
+            CancellationFreeCancellationPeriod = property.CancellationFreeCancellationPeriod,
+            CancellationPartialRefundRule = property.CancellationPartialRefundRule,
+            CancellationNotes = property.CancellationNotes,
             AvailableFrom = property.AvailableFrom,
             AvailableTo = property.AvailableTo,
             IsListed = property.IsListed,

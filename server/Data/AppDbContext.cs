@@ -35,6 +35,27 @@ public class AppDbContext : DbContext
             .HasForeignKey(b => b.PropertyId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<Booking>()
+            .HasIndex(booking => new
+            {
+                booking.PropertyId,
+                booking.Status,
+                booking.CheckIn,
+                booking.CheckOut
+            });
+
+        modelBuilder.Entity<Booking>()
+            .HasIndex(booking => new { booking.GuestId, booking.CreatedAt });
+
+        modelBuilder.Entity<Property>()
+            .HasIndex(property => new
+            {
+                property.IsListed,
+                property.IsAvailable,
+                property.AvailableTo,
+                property.CreatedAt
+            });
+
         modelBuilder.Entity<User>()
             .HasIndex(user => user.Email)
             .IsUnique();
@@ -53,6 +74,12 @@ public class AppDbContext : DbContext
             .HasIndex(conversation => new { conversation.PropertyId, conversation.GuestId })
             .IsUnique()
             .HasFilter("\"BookingId\" IS NULL");
+
+        modelBuilder.Entity<Conversation>()
+            .HasIndex(conversation => new { conversation.GuestId, conversation.UpdatedAt });
+
+        modelBuilder.Entity<Conversation>()
+            .HasIndex(conversation => new { conversation.HostId, conversation.UpdatedAt });
 
         modelBuilder.Entity<Conversation>()
             .HasOne(conversation => conversation.Booking)
@@ -92,6 +119,15 @@ public class AppDbContext : DbContext
 
         modelBuilder.Entity<ChatMessage>()
             .HasIndex(message => new { message.ConversationId, message.CreatedAt });
+
+        modelBuilder.Entity<ChatMessage>()
+            .HasIndex(message => new
+            {
+                message.ConversationId,
+                message.ReadAt,
+                message.SenderId
+            })
+            .HasFilter("\"ReadAt\" IS NULL");
 
         modelBuilder.Entity<Review>()
             .HasIndex(review => review.BookingId)

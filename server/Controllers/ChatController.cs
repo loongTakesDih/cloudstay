@@ -32,6 +32,7 @@ public class ChatController : ControllerBase
         }
 
         var conversations = await _context.Conversations
+            .AsNoTracking()
             .Where(conversation => conversation.GuestId == userId || conversation.HostId == userId)
             .OrderByDescending(conversation => conversation.UpdatedAt)
             .Select(conversation => new
@@ -59,22 +60,81 @@ public class ChatController : ControllerBase
                     : conversation.Guest == null
                         ? null
                         : new { conversation.Guest.Id, conversation.Guest.Username },
-                LastMessage = conversation.Messages
-                    .OrderByDescending(message => message.CreatedAt)
-                    .Select(message => new
-                    {
-                        message.Id,
-                        message.Body,
-                        message.SenderId,
-                        message.CreatedAt
-                    })
-                    .FirstOrDefault(),
-                UnreadCount = conversation.Messages.Count(message =>
-                    message.SenderId != userId && message.ReadAt == null)
             })
             .ToListAsync();
 
-        return Ok(conversations);
+        var conversationIds = conversations
+            .Select(conversation => conversation.Id)
+            .ToList();
+
+        if (conversationIds.Count == 0)
+        {
+            return Ok(conversations);
+        }
+
+        var lastMessages = await _context.ChatMessages
+            .AsNoTracking()
+            .Where(message => conversationIds.Contains(message.ConversationId))
+            .GroupBy(message => message.ConversationId)
+            .Select(group => group
+                .OrderByDescending(message => message.CreatedAt)
+                .ThenByDescending(message => message.Id)
+                .Select(message => new
+                {
+                    message.ConversationId,
+                    message.Id,
+                    message.Body,
+                    message.SenderId,
+                    message.CreatedAt
+                })
+                .First())
+            .ToDictionaryAsync(message => message.ConversationId);
+
+        var unreadCounts = await _context.ChatMessages
+            .AsNoTracking()
+            .Where(message =>
+                conversationIds.Contains(message.ConversationId) &&
+                message.SenderId != userId &&
+                message.ReadAt == null)
+            .GroupBy(message => message.ConversationId)
+            .Select(group => new
+            {
+                ConversationId = group.Key,
+                Count = group.Count()
+            })
+            .ToDictionaryAsync(item => item.ConversationId, item => item.Count);
+
+        var response = conversations.Select(conversation =>
+        {
+            lastMessages.TryGetValue(conversation.Id, out var lastMessage);
+            unreadCounts.TryGetValue(conversation.Id, out var unreadCount);
+
+            return new
+            {
+                conversation.Id,
+                conversation.BookingId,
+                conversation.PropertyId,
+                conversation.UpdatedAt,
+                conversation.CurrentUserIsHost,
+                conversation.BookingStatus,
+                conversation.CheckIn,
+                conversation.CheckOut,
+                conversation.Property,
+                conversation.OtherUser,
+                LastMessage = lastMessage == null
+                    ? null
+                    : new
+                    {
+                        lastMessage.Id,
+                        lastMessage.Body,
+                        lastMessage.SenderId,
+                        lastMessage.CreatedAt
+                    },
+                UnreadCount = unreadCount
+            };
+        });
+
+        return Ok(response);
     }
 
     [HttpPost("conversations")]
@@ -101,6 +161,7 @@ public class ChatController : ControllerBase
         if (request.BookingId.HasValue)
         {
             var booking = await _context.Bookings
+                .AsNoTracking()
                 .Where(item => item.Id == request.BookingId.Value)
                 .Select(item => new
                 {
@@ -134,6 +195,7 @@ public class ChatController : ControllerBase
         else
         {
             var property = await _context.Properties
+                .AsNoTracking()
                 .Where(item => item.Id == request.PropertyId!.Value)
                 .Select(item => new { item.Id, item.HostId })
                 .FirstOrDefaultAsync();
@@ -230,22 +292,17 @@ public class ChatController : ControllerBase
             return NotFound(new { message = "Conversation not found." });
         }
 
-        var unreadMessages = await _context.ChatMessages
+        var readAt = DateTime.UtcNow;
+        var updatedCount = await _context.ChatMessages
             .Where(message =>
                 message.ConversationId == conversationId &&
                 message.SenderId != userId &&
                 message.ReadAt == null)
-            .ToListAsync();
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(message => message.ReadAt, readAt));
 
-        if (unreadMessages.Count > 0)
+        if (updatedCount > 0)
         {
-            var readAt = DateTime.UtcNow;
-            foreach (var message in unreadMessages)
-            {
-                message.ReadAt = readAt;
-            }
-
-            await _context.SaveChangesAsync();
             await _realtime.NotifyUsersAsync(
                 [conversation.GuestId, conversation.HostId],
                 new
@@ -257,6 +314,7 @@ public class ChatController : ControllerBase
         }
 
         var messages = await _context.ChatMessages
+            .AsNoTracking()
             .Where(message => message.ConversationId == conversationId)
             .OrderBy(message => message.CreatedAt)
             .Select(message => new
@@ -288,7 +346,7 @@ public class ChatController : ControllerBase
             return NotFound(new { message = "Conversation not found." });
         }
 
-        var body = request.Body.Trim();
+        var body = request.Body?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(body))
         {
             return BadRequest(new { message = "Message cannot be empty." });
@@ -305,6 +363,13 @@ public class ChatController : ControllerBase
         conversation.UpdatedAt = message.CreatedAt;
         _context.ChatMessages.Add(message);
         await _context.SaveChangesAsync();
+
+        var senderName = await _context.Users
+            .AsNoTracking()
+            .Where(user => user.Id == userId)
+            .Select(user => user.Username)
+            .FirstOrDefaultAsync() ?? string.Empty;
+
         await _realtime.NotifyUsersAsync(
             [conversation.GuestId, conversation.HostId],
             new
@@ -315,11 +380,6 @@ public class ChatController : ControllerBase
                 MessageId = message.Id,
                 SenderId = userId
             });
-
-        var senderName = await _context.Users
-            .Where(user => user.Id == userId)
-            .Select(user => user.Username)
-            .FirstOrDefaultAsync() ?? string.Empty;
 
         return Ok(new
         {

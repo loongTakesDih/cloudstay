@@ -79,7 +79,7 @@ function MessagesPage() {
 
   useEffect(() => {
     const initialLoadId = window.setTimeout(() => loadConversations(), 0);
-    const intervalId = window.setInterval(() => loadConversations(), 8000);
+    const intervalId = window.setInterval(() => loadConversations(), 30000);
     return () => {
       window.clearTimeout(initialLoadId);
       window.clearInterval(intervalId);
@@ -88,7 +88,7 @@ function MessagesPage() {
 
   useEffect(() => {
     const initialLoadId = window.setTimeout(() => loadMessages(true), 0);
-    const intervalId = window.setInterval(() => loadMessages(), 3000);
+    const intervalId = window.setInterval(() => loadMessages(), 10000);
     return () => {
       window.clearTimeout(initialLoadId);
       window.clearInterval(intervalId);
@@ -128,9 +128,31 @@ function MessagesPage() {
 
     try {
       const sentMessage = await sendConversationMessage(activeId, body);
-      setMessages((current) => [...current, sentMessage]);
+      setMessages((current) =>
+        current.some((message) => message.id === sentMessage.id)
+          ? current
+          : [...current, sentMessage],
+      );
+      setConversations((current) =>
+        current
+          .map((conversation) =>
+            conversation.id === activeId
+              ? {
+                  ...conversation,
+                  updatedAt: sentMessage.createdAt,
+                  lastMessage: {
+                    id: sentMessage.id,
+                    body: sentMessage.body,
+                    senderId: sentMessage.senderId,
+                    createdAt: sentMessage.createdAt,
+                  },
+                }
+              : conversation,
+          )
+          .sort((left, right) => new Date(right.updatedAt) - new Date(left.updatedAt)),
+      );
       setDraft("");
-      await loadConversations();
+      loadConversations();
     } catch (requestError) {
       setError(getErrorMessage(requestError, "Your message could not be sent."));
     } finally {

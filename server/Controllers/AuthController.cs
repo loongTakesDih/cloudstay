@@ -100,15 +100,35 @@ public class AuthController : ControllerBase
             });
         }
 
-        return Ok(new
+        return Ok(result);
+    }
+
+    [Authorize]
+    [HttpPut("me/profile")]
+    public async Task<ActionResult<AuthResponseDto>> UpdateProfile(
+        UpdateProfileRequestDto request)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+        if (!int.TryParse(userIdClaim, out var userId))
         {
-            result.UserId,
-            result.Username,
-            result.Email,
-            result.Role,
-            result.IsHost,
-            result.CreatedAt
-        });
+            return Unauthorized(new
+            {
+                message = "Invalid user session."
+            });
+        }
+
+        var result = await _authService.UpdateProfileAsync(userId, request);
+
+        if (result == null)
+        {
+            return NotFound(new
+            {
+                message = "User not found."
+            });
+        }
+
+        return Ok(result);
     }
 
     [Authorize]

@@ -43,7 +43,7 @@ function HostNotificationBell() {
 
   useEffect(() => {
     const initialLoadId = window.setTimeout(() => loadNotifications(), 0);
-    const pollingId = window.setInterval(loadNotifications, 5000);
+    const pollingId = window.setInterval(loadNotifications, 30000);
 
     return () => {
       window.clearTimeout(initialLoadId);

@@ -29,6 +29,7 @@ const propertyCategories = [
 ];
 
 const placeTypes = ["Entire place", "A room", "Shared room"];
+const cancellationTypes = ["Flexible", "Moderate", "Strict"];
 
 const amenityGroups = [
   {
@@ -98,6 +99,22 @@ const initialForm = {
   unitFeatures: [],
   propertyFacilities: [],
   safetyFeatures: [],
+  houseRulesCheckInTime: "",
+  houseRulesCheckoutTime: "",
+  houseRulesPetsAllowed: null,
+  houseRulesSmokingAllowed: null,
+  houseRulesPartiesAllowed: null,
+  houseRulesQuietHours: "",
+  houseRulesNotes: "",
+  safetySmokeAlarm: null,
+  safetyCarbonMonoxideAlarm: null,
+  safetySecurityCameras: null,
+  safetyPropertyWarnings: "",
+  safetyNotes: "",
+  cancellationPolicyType: "",
+  cancellationFreeCancellationPeriod: "",
+  cancellationPartialRefundRule: "",
+  cancellationNotes: "",
   title: "",
   description: "",
   availableFrom: "",
@@ -121,6 +138,7 @@ const screens = [
   { id: "finishIntro", mainStep: 2 },
   { id: "availability", mainStep: 2 },
   { id: "price", mainStep: 2 },
+  { id: "thingsToKnow", mainStep: 2 },
   { id: "done", mainStep: 2 },
 ];
 
@@ -212,7 +230,10 @@ function ScreenHeading({ helper, kicker, title }) {
   );
 }
 
-function WizardScreen({ children, visual }) {
+function WizardScreen({
+  children,
+  visual = { icon: "i", label: "Guest expectations", accent: "slate", type: "chips" },
+}) {
   return (
     <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_360px]">
       <div>
@@ -223,6 +244,51 @@ function WizardScreen({ children, visual }) {
       </div>
       <WizardVisual {...visual} />
     </div>
+  );
+}
+
+function GuidedTextInput({ label, value, onChange, placeholder, helper, required = true }) {
+  return (
+    <label>
+      <span className="mb-2 block text-sm font-bold text-slate-700">{label}</span>
+      <input
+        required={required}
+        type="text"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+        placeholder={placeholder}
+      />
+      {helper && <span className="mt-1 block text-xs font-semibold text-slate-500">{helper}</span>}
+    </label>
+  );
+}
+
+function BooleanChoice({ label, value, onChange, helper }) {
+  return (
+    <fieldset>
+      <legend className="mb-2 block text-sm font-bold text-slate-700">{label}</legend>
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          [true, "Yes"],
+          [false, "No"],
+        ].map(([optionValue, optionLabel]) => (
+          <button
+            key={optionLabel}
+            type="button"
+            onClick={() => onChange(optionValue)}
+            className={`rounded-2xl border px-4 py-3 text-sm font-bold transition ${
+              value === optionValue
+                ? "border-rose-500 bg-rose-50 text-rose-700"
+                : "border-slate-200 bg-white text-slate-700 hover:border-rose-200"
+            }`}
+          >
+            {optionLabel}
+          </button>
+        ))}
+      </div>
+      {helper && <p className="mt-1 text-xs font-semibold text-slate-500">{helper}</p>}
+    </fieldset>
   );
 }
 
@@ -277,6 +343,21 @@ function ListingWizard({ mode = "become-host" }) {
       case "availability":
         return Boolean(datesValid);
       case "price":
+        return Number(form.pricePerNight) >= 1;
+      case "thingsToKnow":
+        return (
+          hasText(form.houseRulesCheckInTime) &&
+          hasText(form.houseRulesCheckoutTime) &&
+          form.houseRulesPetsAllowed !== null &&
+          form.houseRulesSmokingAllowed !== null &&
+          form.houseRulesPartiesAllowed !== null &&
+          form.safetySmokeAlarm !== null &&
+          form.safetyCarbonMonoxideAlarm !== null &&
+          form.safetySecurityCameras !== null &&
+          hasText(form.cancellationPolicyType) &&
+          hasText(form.cancellationFreeCancellationPeriod) &&
+          hasText(form.cancellationPartialRefundRule)
+        );
       case "done":
         return Number(form.pricePerNight) >= 1;
       default:
@@ -379,6 +460,22 @@ function ListingWizard({ mode = "become-host" }) {
     unitFeatures: form.unitFeatures,
     propertyFacilities: form.propertyFacilities,
     safetyFeatures: form.safetyFeatures,
+    houseRulesCheckInTime: form.houseRulesCheckInTime,
+    houseRulesCheckoutTime: form.houseRulesCheckoutTime,
+    houseRulesPetsAllowed: form.houseRulesPetsAllowed,
+    houseRulesSmokingAllowed: form.houseRulesSmokingAllowed,
+    houseRulesPartiesAllowed: form.houseRulesPartiesAllowed,
+    houseRulesQuietHours: form.houseRulesQuietHours,
+    houseRulesNotes: form.houseRulesNotes,
+    safetySmokeAlarm: form.safetySmokeAlarm,
+    safetyCarbonMonoxideAlarm: form.safetyCarbonMonoxideAlarm,
+    safetySecurityCameras: form.safetySecurityCameras,
+    safetyPropertyWarnings: form.safetyPropertyWarnings,
+    safetyNotes: form.safetyNotes,
+    cancellationPolicyType: form.cancellationPolicyType,
+    cancellationFreeCancellationPeriod: form.cancellationFreeCancellationPeriod,
+    cancellationPartialRefundRule: form.cancellationPartialRefundRule,
+    cancellationNotes: form.cancellationNotes,
     availableFrom: form.availableFrom,
     availableTo: form.availableTo,
     isAvailable: true,
@@ -863,6 +960,146 @@ function ListingWizard({ mode = "become-host" }) {
               value={form.pricePerNight}
               onChange={(value) => updateForm("pricePerNight", value)}
             />
+          </>
+        );
+      case "thingsToKnow":
+        return (
+          <>
+            <ScreenHeading
+              kicker="Things to know"
+              title="Set clear expectations for guests"
+              helper="These details appear on your listing so guests know the rules, safety notes, and cancellation policy before booking."
+            />
+            <div className="space-y-6 rounded-3xl border border-white/80 bg-white/85 p-6 shadow-xl shadow-rose-100/40">
+              <section>
+                <h2 className="text-lg font-bold text-slate-950">House rules</h2>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <GuidedTextInput
+                    label="Check-in time"
+                    value={form.houseRulesCheckInTime}
+                    onChange={(value) => updateForm("houseRulesCheckInTime", value)}
+                    placeholder="After 3:00 PM"
+                  />
+                  <GuidedTextInput
+                    label="Checkout time"
+                    value={form.houseRulesCheckoutTime}
+                    onChange={(value) => updateForm("houseRulesCheckoutTime", value)}
+                    placeholder="Before 11:00 AM"
+                  />
+                  <BooleanChoice
+                    label="Pets allowed"
+                    value={form.houseRulesPetsAllowed}
+                    onChange={(value) => updateForm("houseRulesPetsAllowed", value)}
+                  />
+                  <BooleanChoice
+                    label="Smoking allowed"
+                    value={form.houseRulesSmokingAllowed}
+                    onChange={(value) => updateForm("houseRulesSmokingAllowed", value)}
+                  />
+                  <BooleanChoice
+                    label="Parties allowed"
+                    value={form.houseRulesPartiesAllowed}
+                    onChange={(value) => updateForm("houseRulesPartiesAllowed", value)}
+                  />
+                  <GuidedTextInput
+                    label="Quiet hours"
+                    value={form.houseRulesQuietHours}
+                    onChange={(value) => updateForm("houseRulesQuietHours", value)}
+                    placeholder="10:00 PM to 7:00 AM"
+                    helper="Optional, but helpful for apartments and shared buildings."
+                    required={false}
+                  />
+                  <label className="sm:col-span-2">
+                    <span className="mb-2 block text-sm font-bold text-slate-700">Extra house rule notes</span>
+                    <textarea
+                      rows="3"
+                      value={form.houseRulesNotes}
+                      onChange={(event) => updateForm("houseRulesNotes", event.target.value)}
+                      className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold leading-7 outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                      placeholder="Example: Please remove shoes indoors and keep shared spaces tidy."
+                    />
+                  </label>
+                </div>
+              </section>
+
+              <section className="border-t border-slate-200 pt-6">
+                <h2 className="text-lg font-bold text-slate-950">Safety and property</h2>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <BooleanChoice
+                    label="Smoke alarm"
+                    value={form.safetySmokeAlarm}
+                    onChange={(value) => updateForm("safetySmokeAlarm", value)}
+                  />
+                  <BooleanChoice
+                    label="Carbon monoxide alarm"
+                    value={form.safetyCarbonMonoxideAlarm}
+                    onChange={(value) => updateForm("safetyCarbonMonoxideAlarm", value)}
+                  />
+                  <BooleanChoice
+                    label="Exterior/security cameras"
+                    value={form.safetySecurityCameras}
+                    onChange={(value) => updateForm("safetySecurityCameras", value)}
+                    helper="Choose yes if cameras monitor exterior or shared spaces."
+                  />
+                  <GuidedTextInput
+                    label="Property warnings"
+                    value={form.safetyPropertyWarnings}
+                    onChange={(value) => updateForm("safetyPropertyWarnings", value)}
+                    placeholder="Pool, balcony, stairs, steep driveway"
+                    required={false}
+                  />
+                  <label className="sm:col-span-2">
+                    <span className="mb-2 block text-sm font-bold text-slate-700">Extra safety notes</span>
+                    <textarea
+                      rows="3"
+                      value={form.safetyNotes}
+                      onChange={(event) => updateForm("safetyNotes", event.target.value)}
+                      className="w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold leading-7 outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                      placeholder="Example: Balcony railings are standard height; supervise children near the pool."
+                    />
+                  </label>
+                </div>
+              </section>
+
+              <section className="border-t border-slate-200 pt-6">
+                <h2 className="text-lg font-bold text-slate-950">Cancellation policy</h2>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                  <label>
+                    <span className="mb-2 block text-sm font-bold text-slate-700">Cancellation type</span>
+                    <select
+                      required
+                      value={form.cancellationPolicyType}
+                      onChange={(event) => updateForm("cancellationPolicyType", event.target.value)}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 font-semibold outline-none focus:border-rose-300 focus:ring-4 focus:ring-rose-100"
+                    >
+                      <option value="">Choose a policy</option>
+                      {cancellationTypes.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </label>
+                  <GuidedTextInput
+                    label="Free cancellation period"
+                    value={form.cancellationFreeCancellationPeriod}
+                    onChange={(value) => updateForm("cancellationFreeCancellationPeriod", value)}
+                    placeholder="Free cancellation until 48 hours before check-in"
+                  />
+                  <GuidedTextInput
+                    label="Partial refund rule"
+                    value={form.cancellationPartialRefundRule}
+                    onChange={(value) => updateForm("cancellationPartialRefundRule", value)}
+                    placeholder="50% refund after the free cancellation period"
+                  />
+                  <GuidedTextInput
+                    label="Extra cancellation notes"
+                    value={form.cancellationNotes}
+                    onChange={(value) => updateForm("cancellationNotes", value)}
+                    placeholder="Example: Cleaning fee is refundable before check-in"
+                    required={false}
+                  />
+                </div>
+              </section>
+            </div>
           </>
         );
       case "done":

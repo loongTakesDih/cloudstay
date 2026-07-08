@@ -78,7 +78,11 @@ namespace server.Migrations
 
                     b.HasIndex("GuestId");
 
+                    b.HasIndex("GuestId", "CreatedAt");
+
                     b.HasIndex("PropertyId");
+
+                    b.HasIndex("PropertyId", "Status", "CheckIn", "CheckOut");
 
                     b.ToTable("Bookings");
                 });
@@ -113,6 +117,9 @@ namespace server.Migrations
                     b.HasIndex("SenderId");
 
                     b.HasIndex("ConversationId", "CreatedAt");
+
+                    b.HasIndex("ConversationId", "ReadAt", "SenderId")
+                        .HasFilter("\"ReadAt\" IS NULL");
 
                     b.ToTable("ChatMessages");
                 });
@@ -151,7 +158,11 @@ namespace server.Migrations
 
                     b.HasIndex("GuestId");
 
+                    b.HasIndex("GuestId", "UpdatedAt");
+
                     b.HasIndex("HostId");
+
+                    b.HasIndex("HostId", "UpdatedAt");
 
                     b.HasIndex("PropertyId", "GuestId")
                         .IsUnique()
@@ -198,12 +209,45 @@ namespace server.Migrations
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("CancellationFreeCancellationPeriod")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CancellationNotes")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CancellationPartialRefundRule")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CancellationPolicyType")
+                        .HasColumnType("text");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("text");
 
                     b.Property<int?>("GuestCount")
                         .HasColumnType("integer");
+
+                    b.Property<string>("HouseRulesCheckInTime")
+                        .HasColumnType("text");
+
+                    b.Property<string>("HouseRulesCheckoutTime")
+                        .HasColumnType("text");
+
+                    b.Property<string>("HouseRulesNotes")
+                        .HasColumnType("text");
+
+                    b.Property<bool?>("HouseRulesPartiesAllowed")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool?>("HouseRulesPetsAllowed")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("HouseRulesQuietHours")
+                        .HasColumnType("text");
+
+                    b.Property<bool?>("HouseRulesSmokingAllowed")
+                        .HasColumnType("boolean");
 
                     b.Property<int>("HostId")
                         .HasColumnType("integer");
@@ -242,6 +286,21 @@ namespace server.Migrations
                     b.Property<string>("SafetyFeatures")
                         .HasColumnType("text");
 
+                    b.Property<bool?>("SafetyCarbonMonoxideAlarm")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("SafetyNotes")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SafetyPropertyWarnings")
+                        .HasColumnType("text");
+
+                    b.Property<bool?>("SafetySecurityCameras")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool?>("SafetySmokeAlarm")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("State")
                         .HasColumnType("text");
 
@@ -258,6 +317,8 @@ namespace server.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("HostId");
+
+                    b.HasIndex("IsListed", "IsAvailable", "AvailableTo", "CreatedAt");
 
                     b.ToTable("Properties");
                 });
@@ -354,8 +415,20 @@ namespace server.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("AboutMe")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BiographyTitle")
+                        .HasColumnType("text");
+
+                    b.Property<string>("BirthDecade")
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DreamDestination")
+                        .HasColumnType("text");
 
                     b.Property<string>("Email")
                         .IsRequired()
@@ -364,14 +437,35 @@ namespace server.Migrations
                     b.Property<bool>("EmailVerified")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("FavoriteHighSchoolSong")
+                        .HasColumnType("text");
+
+                    b.Property<string>("FunFact")
+                        .HasColumnType("text");
+
                     b.Property<string>("GoogleSubjectId")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Interests")
                         .HasColumnType("text");
 
                     b.Property<bool>("IsHost")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Languages")
+                        .HasColumnType("text");
+
+                    b.Property<string>("LivesIn")
+                        .HasColumnType("text");
+
+                    b.Property<string>("ObsessedWith")
+                        .HasColumnType("text");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("Pets")
                         .HasColumnType("text");
 
                     b.Property<string>("ProfilePictureUrl")
@@ -381,8 +475,20 @@ namespace server.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("School")
+                        .HasColumnType("text");
+
+                    b.Property<string>("SpendTooMuchTime")
+                        .HasColumnType("text");
+
                     b.Property<string>("Username")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("UselessSkill")
+                        .HasColumnType("text");
+
+                    b.Property<string>("Work")
                         .HasColumnType("text");
 
                     b.HasKey("Id");

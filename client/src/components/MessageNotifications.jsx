@@ -53,7 +53,7 @@ function MessageNotifications() {
     if (!userId) return undefined;
 
     const initialLoadId = window.setTimeout(syncUnreadMessages, 0);
-    const pollingId = window.setInterval(syncUnreadMessages, 5000);
+    const pollingId = window.setInterval(syncUnreadMessages, 30000);
 
     return () => {
       window.clearTimeout(initialLoadId);

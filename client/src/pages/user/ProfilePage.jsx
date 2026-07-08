@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AppHeader from "../../components/AppHeader";
-import { getMyReviews, getMyTrips } from "../../api/api.js";
+import { getMyReviews, getMyTrips, updateMyProfile } from "../../api/api.js";
 import { useAuth } from "../../context/useAuth";
 
 const sections = [
@@ -9,6 +9,87 @@ const sections = [
   { id: "past-trips", label: "Past trips" },
   { id: "connections", label: "Connections" },
 ];
+
+const validSections = [...sections.map((item) => item.id), "edit-profile"];
+
+const profileFields = [
+  ["dreamDestination", "Where I've always wanted to go", "Kyoto in spring"],
+  ["work", "My work", "Product designer, teacher, founder"],
+  ["uselessSkill", "My most useless skill", "Remembering movie release years"],
+  ["pets", "Pets", "One tabby cat named Milo"],
+  ["birthDecade", "Decade I was born", "1990s"],
+  ["school", "Where I went to school", "University of Malaya"],
+  ["spendTooMuchTime", "I spend too much time", "Planning weekend cafes"],
+  ["funFact", "My fun fact", "I once learned to make pasta in Rome"],
+  ["favoriteHighSchoolSong", "My favorite song in high school", "A song that still makes me smile"],
+  ["biographyTitle", "My biography title would be", "Always Checking In"],
+  ["obsessedWith", "I'm obsessed with", "Good coffee and quiet streets"],
+  ["languages", "Languages I speak", "English, Malay, Mandarin"],
+  ["livesIn", "Where I live", "Kuala Lumpur, Malaysia"],
+];
+
+const profileFieldIcons = {
+  dreamDestination: "pin",
+  work: "briefcase",
+  uselessSkill: "star",
+  pets: "heart",
+  birthDecade: "calendar",
+  school: "book",
+  spendTooMuchTime: "clock",
+  funFact: "star",
+  favoriteHighSchoolSong: "music",
+  biographyTitle: "book",
+  obsessedWith: "heart",
+  languages: "language",
+  livesIn: "home",
+  aboutMe: "user",
+  interests: "tag",
+};
+
+const interestOptions = [
+  "Travel",
+  "Food",
+  "Music",
+  "Movies",
+  "Gaming",
+  "Reading",
+  "Sports",
+  "Photography",
+  "Hiking",
+  "Fitness",
+  "Pets",
+  "Art",
+  "Fashion",
+  "Technology",
+  "Cooking",
+  "Nature",
+  "Coffee",
+  "Museums",
+  "Nightlife",
+  "Volunteering",
+  "Architecture",
+  "Wellness",
+  "Local culture",
+  "Road trips",
+];
+
+const emptyProfile = {
+  dreamDestination: "",
+  work: "",
+  uselessSkill: "",
+  pets: "",
+  birthDecade: "",
+  school: "",
+  spendTooMuchTime: "",
+  funFact: "",
+  favoriteHighSchoolSong: "",
+  biographyTitle: "",
+  obsessedWith: "",
+  languages: "",
+  livesIn: "",
+  aboutMe: "",
+  interests: [],
+};
 
 const formatDate = (value) =>
   value
@@ -45,6 +126,16 @@ const isPastTrip = (trip) => {
   );
 };
 
+const buildProfile = (user) => ({
+  ...emptyProfile,
+  ...Object.fromEntries(
+    Object.keys(emptyProfile)
+      .filter((key) => key !== "interests")
+      .map((key) => [key, user?.[key] || ""]),
+  ),
+  interests: Array.isArray(user?.interests) ? user.interests : [],
+});
+
 function TripCard({ trip, onOpen }) {
   return (
     <button
@@ -54,42 +145,80 @@ function TripCard({ trip, onOpen }) {
     >
       <div className="h-36 bg-gradient-to-br from-rose-100 to-slate-200">
         {trip.property?.imageUrl && (
-          <img
-            src={trip.property.imageUrl}
-            alt=""
-            className="h-full w-full object-cover"
-          />
+          <img src={trip.property.imageUrl} alt="" className="h-full w-full object-cover" />
         )}
       </div>
       <div className="p-5">
-        <h3 className="truncate text-lg font-bold">
-          {trip.property?.title || "CloudStay property"}
-        </h3>
-        <p className="mt-1 truncate text-sm text-slate-500">
-          {trip.property?.location || "Location unavailable"}
-        </p>
+        <h3 className="truncate text-lg font-bold">{trip.property?.title || "CloudStay property"}</h3>
+        <p className="mt-1 truncate text-sm text-slate-500">{trip.property?.location || "Location unavailable"}</p>
         <p className="mt-4 text-xs font-bold uppercase tracking-wide text-slate-500">
-          {formatDate(trip.checkIn)} – {formatDate(trip.checkOut)}
+          {formatDate(trip.checkIn)} - {formatDate(trip.checkOut)}
         </p>
       </div>
     </button>
   );
 }
 
-function AboutMe({ user, pastTrips, reviews }) {
+function ProfileHero({ user, profile, pastTrips, reviews, onEdit }) {
+  const profileItems = profileFields
+    .map(([key, label]) => [label, profile[key]])
+    .filter(([, value]) => String(value || "").trim());
+
   return (
     <div className="space-y-12">
       <section>
-        <h1 className="text-4xl font-bold tracking-tight">About me</h1>
-        <div className="mt-7 grid overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm md:grid-cols-[1fr_210px]">
-          <div className="flex flex-col items-center justify-center p-10 text-center">
-            <div className="grid h-32 w-32 place-items-center rounded-full bg-slate-950 text-5xl font-bold text-white">
-              {(user?.username || "C").slice(0, 1).toUpperCase()}
-            </div>
-            <h2 className="mt-5 text-3xl font-bold">{user?.username || "Traveler"}</h2>
-            <p className="mt-1 text-sm font-semibold text-slate-500">
-              {user?.isHost ? "Guest and host" : "CloudStay guest"}
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight">About me</h1>
+            <p className="mt-3 max-w-2xl text-slate-500">
+              A profile helps hosts and guests feel confident about who they are meeting.
             </p>
+          </div>
+          <button
+            type="button"
+            onClick={onEdit}
+            className="w-fit rounded-full bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+          >
+            Edit profile
+          </button>
+        </div>
+
+        <div className="mt-7 grid overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm md:grid-cols-[1fr_220px]">
+          <div className="p-8 sm:p-10">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+              <div className="grid h-32 w-32 shrink-0 place-items-center rounded-full bg-slate-950 text-5xl font-bold text-white">
+                {(user?.username || "C").slice(0, 1).toUpperCase()}
+              </div>
+              <div>
+                <h2 className="text-3xl font-bold">{user?.username || "Traveler"}</h2>
+                <p className="mt-1 text-sm font-semibold text-slate-500">
+                  {user?.isHost ? "Guest and host" : "CloudStay guest"}
+                </p>
+                {profile.livesIn && <p className="mt-3 text-sm font-semibold text-slate-700">{profile.livesIn}</p>}
+              </div>
+            </div>
+
+            {profile.aboutMe ? (
+              <p className="mt-8 max-w-3xl text-base leading-8 text-slate-700">{profile.aboutMe}</p>
+            ) : (
+              <div className="mt-8 rounded-2xl border border-dashed border-slate-300 p-5">
+                <p className="font-bold text-slate-800">Add a short intro about yourself</p>
+                <p className="mt-1 text-sm text-slate-500">Share how you travel, host, or spend your weekends.</p>
+              </div>
+            )}
+
+            {profileItems.length > 0 && (
+              <div className="mt-8 border-t border-slate-200 pt-8">
+                <div className="grid gap-x-10 gap-y-6 sm:grid-cols-2">
+                  {profileItems.map(([label, value]) => (
+                    <div key={label}>
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</p>
+                      <p className="mt-1 text-base font-semibold leading-7 text-slate-800">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="border-t border-slate-200 px-7 py-5 md:border-l md:border-t-0">
@@ -98,10 +227,7 @@ function AboutMe({ user, pastTrips, reviews }) {
               [reviews.length, reviews.length === 1 ? "review" : "reviews"],
               [getTimeOnCloudStay(user?.createdAt), "on CloudStay"],
             ].map(([value, label], index) => (
-              <div
-                key={label}
-                className={index > 0 ? "border-t border-slate-200 py-5" : "pb-5"}
-              >
+              <div key={label} className={index > 0 ? "border-t border-slate-200 py-5" : "pb-5"}>
                 <p className="text-xl font-extrabold text-slate-950">{value}</p>
                 <p className="mt-1 text-xs font-semibold text-slate-500">{label}</p>
               </div>
@@ -111,41 +237,39 @@ function AboutMe({ user, pastTrips, reviews }) {
       </section>
 
       <section className="border-t border-slate-200 pt-10">
-        <h2 className="text-3xl font-bold tracking-tight">Where I’ve been</h2>
-        <div className="mt-6 rounded-[2rem] border border-dashed border-slate-300 bg-white p-10">
-          <p className="font-bold text-slate-900">Your travel map is coming soon</p>
-          <p className="mt-2 text-sm text-slate-500">
-            Places from completed CloudStay trips will appear here.
-          </p>
-        </div>
+        <h2 className="text-3xl font-bold tracking-tight">Interests</h2>
+        {profile.interests.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-500">No interests selected yet.</p>
+        ) : (
+          <div className="mt-5 flex flex-wrap gap-2">
+            {profile.interests.map((interest) => (
+              <span key={interest} className="rounded-full bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm">
+                {interest}
+              </span>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="border-t border-slate-200 pt-10">
-        <h2 className="text-3xl font-bold tracking-tight">Reviews I’ve written</h2>
+        <h2 className="text-3xl font-bold tracking-tight">Reviews I've written</h2>
         {reviews.length === 0 ? (
           <div className="mt-6 rounded-[2rem] border border-dashed border-slate-300 bg-white p-10">
             <p className="font-bold">No reviews written yet</p>
-            <p className="mt-2 text-sm text-slate-500">
-              Reviews you leave after a stay will be collected here.
-            </p>
+            <p className="mt-2 text-sm text-slate-500">Reviews you leave after a stay will be collected here.</p>
           </div>
         ) : (
           <div className="mt-6 space-y-4">
             {reviews.map((review) => (
-              <article
-                key={review.id}
-                className="rounded-3xl border border-slate-200 bg-white p-6"
-              >
+              <article key={review.id} className="rounded-3xl border border-slate-200 bg-white p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h3 className="font-bold">{review.propertyTitle}</h3>
                   <span className="text-sm font-bold text-amber-500">
-                    {"★".repeat(Math.round(review.overallRating))}
+                    {"*".repeat(Math.round(review.overallRating))}
                   </span>
                 </div>
                 <p className="mt-3 leading-7 text-slate-600">{review.comment}</p>
-                <p className="mt-4 text-xs font-semibold text-slate-400">
-                  {formatDate(review.createdAt)}
-                </p>
+                <p className="mt-4 text-xs font-semibold text-slate-400">{formatDate(review.createdAt)}</p>
               </article>
             ))}
           </div>
@@ -155,13 +279,308 @@ function AboutMe({ user, pastTrips, reviews }) {
   );
 }
 
+function ProfileIcon({ type }) {
+  const commonProps = {
+    fill: "none",
+    stroke: "currentColor",
+    strokeLinecap: "round",
+    strokeLinejoin: "round",
+    strokeWidth: "1.9",
+    viewBox: "0 0 24 24",
+    className: "h-5 w-5",
+    "aria-hidden": "true",
+  };
+  const paths = {
+    pin: <><path d="M12 21s6-5.4 6-11a6 6 0 1 0-12 0c0 5.6 6 11 6 11Z" /><path d="M12 10.5h.01" /></>,
+    briefcase: <><path d="M9 7V5.8A1.8 1.8 0 0 1 10.8 4h2.4A1.8 1.8 0 0 1 15 5.8V7" /><path d="M4 8.5h16v9A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5v-9Z" /><path d="M4 12h16" /></>,
+    star: <path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z" />,
+    heart: <path d="M20.8 5.6a5 5 0 0 0-7.1 0L12 7.3l-1.7-1.7a5 5 0 1 0-7.1 7.1L12 21l8.8-8.3a5 5 0 0 0 0-7.1Z" />,
+    calendar: <><path d="M7 3v3" /><path d="M17 3v3" /><path d="M4 8h16" /><path d="M5 5h14a1 1 0 0 1 1 1v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a1 1 0 0 1 1-1Z" /></>,
+    book: <><path d="M5 4h9a3 3 0 0 1 3 3v13H8a3 3 0 0 0-3 3V4Z" /><path d="M17 7h2v13h-2" /></>,
+    clock: <><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z" /><path d="M12 7v5l3 2" /></>,
+    music: <><path d="M9 18V6l10-2v12" /><path d="M9 18a3 3 0 1 1-3-3 3 3 0 0 1 3 3Z" /><path d="M19 16a3 3 0 1 1-3-3 3 3 0 0 1 3 3Z" /></>,
+    language: <><path d="M4 5h9" /><path d="M9 3v2" /><path d="M6 9c1.2 3 3.5 5 7 6" /><path d="M12 9c-1.1 2.7-3.3 4.8-7 6" /><path d="m14 21 4-9 4 9" /><path d="M15.5 18h5" /></>,
+    home: <><path d="m3 11 9-8 9 8" /><path d="M5 10v10h14V10" /><path d="M9 20v-6h6v6" /></>,
+    user: <><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
+    tag: <><path d="M20 13 12 21 3 12V4h8l9 9Z" /><path d="M7.5 7.5h.01" /></>,
+  };
+
+  return <svg {...commonProps}>{paths[type] || paths.user}</svg>;
+}
+
+function EditableProfileRow({ icon, title, value, placeholder, onClick }) {
+  const hasValue = Boolean(String(value || "").trim());
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center gap-4 border-b border-slate-100 px-1 py-5 text-left last:border-b-0"
+    >
+      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-slate-50 text-slate-700">
+        <ProfileIcon type={icon} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-base font-bold text-slate-950">{title}</span>
+        <span className={`mt-1 block truncate text-sm ${hasValue ? "text-slate-600" : "text-slate-400"}`}>
+          {hasValue ? value : placeholder}
+        </span>
+      </span>
+      <span className="text-2xl leading-none text-slate-300">+</span>
+    </button>
+  );
+}
+
+function FieldEditorModal({ field, value, onClose, onSave }) {
+  const [draft, setDraft] = useState(value || "");
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-[2rem] bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-slate-50 text-slate-700">
+              <ProfileIcon type={field.icon} />
+            </span>
+            <h2 className="text-xl font-bold text-slate-950">{field.label}</h2>
+          </div>
+          <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full border border-slate-200 text-xl leading-none hover:bg-slate-50" aria-label="Close editor">
+            x
+          </button>
+        </div>
+        <div className="p-6">
+          {field.multiline ? (
+            <textarea
+              rows="6"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder={field.placeholder}
+              className="w-full resize-none rounded-2xl border border-slate-300 px-4 py-3 leading-7 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+              autoFocus
+            />
+          ) : (
+            <input
+              type="text"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              placeholder={field.placeholder}
+              className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none transition focus:border-rose-400 focus:ring-4 focus:ring-rose-100"
+              autoFocus
+            />
+          )}
+        </div>
+        <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
+          <button type="button" onClick={onClose} className="rounded-full border border-slate-300 px-5 py-2.5 text-sm font-bold">
+            Cancel
+          </button>
+          <button type="button" onClick={() => onSave(draft)} className="rounded-full bg-slate-950 px-5 py-2.5 text-sm font-bold text-white">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InterestsEditorModal({ selectedInterests, onClose, onSave }) {
+  const [draft, setDraft] = useState(selectedInterests);
+  const toggleInterest = (interest) => {
+    setDraft((current) =>
+      current.includes(interest)
+        ? current.filter((item) => item !== interest)
+        : [...current, interest],
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-2xl rounded-[2rem] bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-full bg-slate-50 text-slate-700">
+              <ProfileIcon type="tag" />
+            </span>
+            <h2 className="text-xl font-bold text-slate-950">Interests</h2>
+          </div>
+          <button type="button" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-full border border-slate-200 text-xl leading-none hover:bg-slate-50" aria-label="Close interests">
+            x
+          </button>
+        </div>
+        <div className="max-h-[60vh] overflow-y-auto p-6">
+          <div className="flex flex-wrap gap-2">
+            {interestOptions.map((interest) => {
+              const selected = draft.includes(interest);
+              return (
+                <button
+                  key={interest}
+                  type="button"
+                  onClick={() => toggleInterest(interest)}
+                  className={`rounded-full border px-4 py-2 text-sm font-bold transition ${
+                    selected
+                      ? "border-rose-500 bg-rose-50 text-rose-700"
+                      : "border-slate-200 text-slate-600 hover:border-slate-300"
+                  }`}
+                >
+                  {interest}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
+          <button type="button" onClick={onClose} className="rounded-full border border-slate-300 px-5 py-2.5 text-sm font-bold">
+            Cancel
+          </button>
+          <button type="button" onClick={() => onSave(draft)} className="rounded-full bg-slate-950 px-5 py-2.5 text-sm font-bold text-white">
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function EditProfile({ initialProfile, onSaved }) {
+  const [form, setForm] = useState(initialProfile);
+  const [activeEditor, setActiveEditor] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const update = (field, value) => setForm((current) => ({ ...current, [field]: value }));
+
+  const handleSubmit = async () => {
+    setSaving(true);
+    setError("");
+
+    try {
+      const updated = await updateMyProfile(form);
+      onSaved(buildProfile(updated));
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Could not save your profile.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section>
+      <h1 className="text-4xl font-bold tracking-tight">Edit profile</h1>
+      <p className="mt-3 max-w-2xl text-slate-500">
+        Add the details you want guests and hosts to see on your CloudStay profile.
+      </p>
+
+      <div className="mt-8 space-y-8">
+        <section className="rounded-[2rem] bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-bold">My profile</h2>
+          <div className="mt-4">
+            {profileFields.map(([key, label, placeholder]) => (
+              <EditableProfileRow
+                key={key}
+                icon={profileFieldIcons[key]}
+                title={label}
+                value={form[key]}
+                placeholder={placeholder}
+                onClick={() =>
+                  setActiveEditor({
+                    type: "field",
+                    key,
+                    label,
+                    placeholder,
+                    icon: profileFieldIcons[key],
+                  })
+                }
+              />
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-[2rem] bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-bold">About me</h2>
+          <div className="mt-4">
+            <EditableProfileRow
+              icon={profileFieldIcons.aboutMe}
+              title="About me"
+              value={form.aboutMe}
+              placeholder="Write a short paragraph about yourself"
+              onClick={() =>
+                setActiveEditor({
+                  type: "field",
+                  key: "aboutMe",
+                  label: "About me",
+                  placeholder: "Write a short paragraph about yourself, how you travel, or what guests can expect from you.",
+                  icon: profileFieldIcons.aboutMe,
+                  multiline: true,
+                })
+              }
+            />
+          </div>
+        </section>
+
+        <section className="rounded-[2rem] bg-white p-6 shadow-sm">
+          <h2 className="text-xl font-bold">Interests</h2>
+          <div className="mt-4">
+            <EditableProfileRow
+              icon={profileFieldIcons.interests}
+              title="Choose your interests"
+              value={form.interests.length > 0 ? form.interests.join(", ") : ""}
+              placeholder="Add travel, food, music, hiking, and more"
+              onClick={() => setActiveEditor({ type: "interests" })}
+            />
+          </div>
+          {form.interests.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {form.interests.map((interest) => (
+                <span key={interest} className="rounded-full bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-600">
+                  {interest}
+                </span>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {error && <p className="rounded-2xl bg-rose-50 p-4 text-sm font-semibold text-rose-700">{error}</p>}
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={saving}
+          className="rounded-full bg-rose-500 px-6 py-3 text-sm font-bold text-white transition hover:bg-rose-600 disabled:opacity-60"
+        >
+          {saving ? "Saving..." : "Save profile"}
+        </button>
+      </div>
+
+      {activeEditor?.type === "field" && (
+        <FieldEditorModal
+          key={activeEditor.key}
+          field={activeEditor}
+          value={form[activeEditor.key]}
+          onClose={() => setActiveEditor(null)}
+          onSave={(value) => {
+            update(activeEditor.key, value);
+            setActiveEditor(null);
+          }}
+        />
+      )}
+
+      {activeEditor?.type === "interests" && (
+        <InterestsEditorModal
+          selectedInterests={form.interests}
+          onClose={() => setActiveEditor(null)}
+          onSave={(value) => {
+            update("interests", value);
+            setActiveEditor(null);
+          }}
+        />
+      )}
+    </section>
+  );
+}
+
 function PastTrips({ trips, loading, onOpen }) {
   return (
     <section>
       <h1 className="text-4xl font-bold tracking-tight">Past trips</h1>
-      <p className="mt-3 text-slate-500">
-        Open a previous booking to revisit its dates, price, messages, and review.
-      </p>
+      <p className="mt-3 text-slate-500">Open a previous booking to revisit its dates, price, messages, and review.</p>
       {loading ? (
         <p className="mt-8 text-sm text-slate-500">Loading past trips...</p>
       ) : trips.length === 0 ? (
@@ -184,21 +603,16 @@ function Connections({ connections }) {
   return (
     <section>
       <h1 className="text-4xl font-bold tracking-tight">Connections</h1>
-      <p className="mt-3 text-slate-500">Hosts you’ve stayed with through CloudStay.</p>
+      <p className="mt-3 text-slate-500">Hosts you've stayed with through CloudStay.</p>
       {connections.length === 0 ? (
         <div className="mt-8 rounded-[2rem] border border-dashed border-slate-300 bg-white p-10">
           <p className="font-bold">No host connections yet</p>
-          <p className="mt-2 text-sm text-slate-500">
-            Hosts from your completed bookings will appear here.
-          </p>
+          <p className="mt-2 text-sm text-slate-500">Hosts from your completed bookings will appear here.</p>
         </div>
       ) : (
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
           {connections.map((host) => (
-            <article
-              key={host.id}
-              className="flex items-center gap-4 rounded-3xl border border-slate-200 bg-white p-5"
-            >
+            <article key={host.id} className="flex items-center gap-4 rounded-3xl border border-slate-200 bg-white p-5">
               <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-slate-950 text-xl font-bold text-white">
                 {(host.username || "H").slice(0, 1).toUpperCase()}
               </div>
@@ -218,12 +632,12 @@ function ProfilePage() {
   const navigate = useNavigate();
   const { section = "about-me" } = useParams();
   const { user } = useAuth();
-  const activeSection = sections.some((item) => item.id === section)
-    ? section
-    : "about-me";
+  const activeSection = validSections.includes(section) ? section : "about-me";
+  const [savedProfile, setSavedProfile] = useState(null);
   const [trips, setTrips] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const profile = useMemo(() => savedProfile ?? buildProfile(user), [savedProfile, user]);
 
   const loadProfileData = useCallback(() => {
     Promise.allSettled([getMyTrips(), getMyReviews()])
@@ -249,10 +663,7 @@ function ProfilePage() {
   }, [loadProfileData]);
 
   const pastTrips = useMemo(
-    () =>
-      trips
-        .filter(isPastTrip)
-        .sort((a, b) => new Date(b.checkOut) - new Date(a.checkOut)),
+    () => trips.filter(isPastTrip).sort((a, b) => new Date(b.checkOut) - new Date(a.checkOut)),
     [trips],
   );
 
@@ -292,18 +703,28 @@ function ProfilePage() {
 
           <div className="min-w-0 lg:pl-4">
             {activeSection === "about-me" && (
-              <AboutMe user={user} pastTrips={pastTrips} reviews={reviews} />
-            )}
-            {activeSection === "past-trips" && (
-              <PastTrips
-                trips={pastTrips}
-                loading={loading}
-                onOpen={(bookingId) => navigate(`/trips/${bookingId}`)}
+              <ProfileHero
+                user={user}
+                profile={profile}
+                pastTrips={pastTrips}
+                reviews={reviews}
+                onEdit={() => navigate("/profile/edit-profile")}
               />
             )}
-            {activeSection === "connections" && (
-              <Connections connections={connections} />
+            {activeSection === "edit-profile" && (
+              <EditProfile
+                key={user?.userId || "profile"}
+                initialProfile={profile}
+                onSaved={(nextProfile) => {
+                  setSavedProfile(nextProfile);
+                  navigate("/profile/about-me");
+                }}
+              />
             )}
+            {activeSection === "past-trips" && (
+              <PastTrips trips={pastTrips} loading={loading} onOpen={(bookingId) => navigate(`/trips/${bookingId}`)} />
+            )}
+            {activeSection === "connections" && <Connections connections={connections} />}
           </div>
         </div>
       </main>

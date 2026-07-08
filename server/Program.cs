@@ -93,6 +93,12 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    dbContext.Database.Migrate();
+}
+
 // Keep this commented for now to avoid HTTPS redirect warning during local testing.
 // app.UseHttpsRedirection();
 

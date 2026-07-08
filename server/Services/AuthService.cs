@@ -184,6 +184,38 @@ public class AuthService
         return CreateAuthResponse(user);
     }
 
+    public async Task<AuthResponseDto?> UpdateProfileAsync(
+        int userId,
+        UpdateProfileRequestDto request)
+    {
+        var user = await _context.Users.FindAsync(userId);
+
+        if (user == null)
+        {
+            return null;
+        }
+
+        user.DreamDestination = EmptyToNull(request.DreamDestination);
+        user.Work = EmptyToNull(request.Work);
+        user.UselessSkill = EmptyToNull(request.UselessSkill);
+        user.Pets = EmptyToNull(request.Pets);
+        user.BirthDecade = EmptyToNull(request.BirthDecade);
+        user.School = EmptyToNull(request.School);
+        user.SpendTooMuchTime = EmptyToNull(request.SpendTooMuchTime);
+        user.FunFact = EmptyToNull(request.FunFact);
+        user.FavoriteHighSchoolSong = EmptyToNull(request.FavoriteHighSchoolSong);
+        user.BiographyTitle = EmptyToNull(request.BiographyTitle);
+        user.ObsessedWith = EmptyToNull(request.ObsessedWith);
+        user.Languages = EmptyToNull(request.Languages);
+        user.LivesIn = EmptyToNull(request.LivesIn);
+        user.AboutMe = EmptyToNull(request.AboutMe);
+        user.Interests = JoinInterests(request.Interests);
+
+        await _context.SaveChangesAsync();
+
+        return CreateAuthResponse(user);
+    }
+
     private AuthResponseDto CreateAuthResponse(User user)
     {
         return new AuthResponseDto
@@ -194,8 +226,55 @@ public class AuthService
             Email = user.Email,
             Role = user.Role,
             IsHost = user.IsHost,
-            CreatedAt = user.CreatedAt
+            CreatedAt = user.CreatedAt,
+            DreamDestination = user.DreamDestination,
+            Work = user.Work,
+            UselessSkill = user.UselessSkill,
+            Pets = user.Pets,
+            BirthDecade = user.BirthDecade,
+            School = user.School,
+            SpendTooMuchTime = user.SpendTooMuchTime,
+            FunFact = user.FunFact,
+            FavoriteHighSchoolSong = user.FavoriteHighSchoolSong,
+            BiographyTitle = user.BiographyTitle,
+            ObsessedWith = user.ObsessedWith,
+            Languages = user.Languages,
+            LivesIn = user.LivesIn,
+            AboutMe = user.AboutMe,
+            Interests = SplitInterests(user.Interests)
         };
+    }
+
+    private static string? EmptyToNull(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static string? JoinInterests(List<string>? values)
+    {
+        if (values == null)
+        {
+            return null;
+        }
+
+        var interests = values
+            .Select(value => value.Trim())
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(30)
+            .ToList();
+
+        return interests.Count == 0 ? null : string.Join(", ", interests);
+    }
+
+    private static List<string> SplitInterests(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value)
+            ? []
+            : value.Split(',')
+                .Select(item => item.Trim())
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .ToList();
     }
 
     private static string BuildGoogleUsername(GoogleJsonWebSignature.Payload payload)
