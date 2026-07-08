@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 const GOOGLE_SCRIPT_ID = "google-identity-services";
 const GOOGLE_SCRIPT_SRC = "https://accounts.google.com/gsi/client";
+let initializedClientId = "";
 
 const loadGoogleIdentityScript = () =>
   new Promise((resolve, reject) => {
@@ -44,21 +45,43 @@ function GoogleSignInButton({
     if (!configured || disabled) return undefined;
 
     let active = true;
+    let removeCredentialListener = () => {};
 
     loadGoogleIdentityScript()
       .then(() => {
         if (!active || !buttonRef.current) return;
 
-        window.google.accounts.id.initialize({
-          client_id: clientId,
-          callback: (response) => {
-            if (response?.credential) {
-              onCredential(response.credential);
-            } else {
-              onError?.("Google did not return a sign-in credential.");
-            }
-          },
-        });
+        if (initializedClientId !== clientId) {
+          window.google.accounts.id.initialize({
+            client_id: clientId,
+            callback: (response) => {
+              window.dispatchEvent(
+                new CustomEvent("cloudstay:google-credential", {
+                  detail: response,
+                }),
+              );
+            },
+          });
+          initializedClientId = clientId;
+        }
+
+        const handleCredential = (event) => {
+          const response = event.detail;
+
+          if (response?.credential) {
+            onCredential(response.credential);
+          } else {
+            onError?.("Google did not return a sign-in credential.");
+          }
+        };
+
+        window.addEventListener("cloudstay:google-credential", handleCredential);
+        removeCredentialListener = () => {
+          window.removeEventListener(
+            "cloudstay:google-credential",
+            handleCredential,
+          );
+        };
 
         buttonRef.current.innerHTML = "";
         window.google.accounts.id.renderButton(buttonRef.current, {
@@ -79,6 +102,7 @@ function GoogleSignInButton({
 
     return () => {
       active = false;
+      removeCredentialListener();
     };
   }, [clientId, configured, disabled, onCredential, onError, text]);
 

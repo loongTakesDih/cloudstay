@@ -1,10 +1,14 @@
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
+using server.Data;
 
 #nullable disable
 
 namespace server.Migrations
 {
     /// <inheritdoc />
+    [DbContext(typeof(AppDbContext))]
+    [Migration("20260705000000_AddGoogleAuthToUsers")]
     public partial class AddGoogleAuthToUsers : Migration
     {
         /// <inheritdoc />
