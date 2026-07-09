@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AppHeader from "../../components/AppHeader";
-import { getMyReviews, getMyTrips, updateMyProfile } from "../../api/api.js";
+import { getMyHostProfile, getMyReviews, getMyTrips, updateMyProfile } from "../../api/api.js";
 import { useAuth } from "../../context/useAuth";
 
 const sections = [
@@ -116,6 +116,25 @@ const getTimeOnCloudStay = (createdAt) => {
   const years = Math.floor(months / 12);
   return `${years} year${years === 1 ? "" : "s"}`;
 };
+
+const getHostDuration = (hostSince) => {
+  if (!hostSince) return "Host date unavailable";
+  const started = new Date(hostSince);
+  if (Number.isNaN(started.getTime())) return "Host date unavailable";
+
+  const diffMs = Date.now() - started.getTime();
+  if (diffMs < 24 * 60 * 60 * 1000) return "Less than a day";
+
+  const days = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+  return `${days} day${days === 1 ? "" : "s"}`;
+};
+
+const formatHostRating = (value) => {
+  const rating = Number(value);
+  return Number.isFinite(rating) ? rating.toFixed(1) : "No ratings yet";
+};
+
+const renderStars = (rating) => "*".repeat(Math.max(0, Math.min(5, Math.round(Number(rating) || 0))));
 
 const isPastTrip = (trip) => {
   const status = String(trip.status || "").toLowerCase();
@@ -275,6 +294,230 @@ function ProfileHero({ user, profile, pastTrips, reviews, onEdit }) {
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function HostReviewsModal({ reviews, onClose }) {
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-3xl overflow-hidden rounded-[2rem] bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+          <div>
+            <h2 className="text-xl font-bold text-slate-950">Host reviews</h2>
+            <p className="mt-1 text-sm text-slate-500">Reviews written for you by guests.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-10 w-10 place-items-center rounded-full border border-slate-200 text-xl hover:bg-slate-50"
+            aria-label="Close host reviews"
+          >
+            x
+          </button>
+        </div>
+        <div className="max-h-[70vh] overflow-y-auto p-6">
+          <div className="space-y-4">
+            {reviews.map((review) => (
+              <article key={review.id} className="rounded-3xl border border-slate-200 p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h3 className="font-bold text-slate-950">{review.guestName || "Guest"}</h3>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      {review.propertyTitle || "CloudStay property"} - {formatDate(review.createdAt)}
+                    </p>
+                  </div>
+                  <span className="text-sm font-bold text-amber-500">{renderStars(review.rating)}</span>
+                </div>
+                <p className="mt-4 leading-7 text-slate-600">{review.comment || "No written host review."}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HostReviewCard({ review }) {
+  return (
+    <article className="rounded-3xl border border-slate-200 bg-white p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-bold text-slate-950">{review.guestName || "Guest"}</h3>
+          <p className="mt-1 text-xs font-semibold text-slate-500">{formatDate(review.createdAt)}</p>
+        </div>
+        <span className="shrink-0 text-sm font-bold text-amber-500">{renderStars(review.rating)}</span>
+      </div>
+      <p className="mt-4 line-clamp-4 text-sm leading-7 text-slate-600">
+        {review.comment || "No written host review."}
+      </p>
+      <p className="mt-4 truncate text-xs font-bold uppercase tracking-wide text-slate-400">
+        {review.propertyTitle || "CloudStay property"}
+      </p>
+    </article>
+  );
+}
+
+function HostListingCard({ listing, onOpen }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="overflow-hidden rounded-3xl border border-slate-200 bg-white text-left transition hover:-translate-y-0.5 hover:shadow-lg"
+    >
+      <div className="relative h-40 bg-gradient-to-br from-slate-100 to-rose-50">
+        {listing.imageUrl ? (
+          <img src={listing.imageUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <div className="grid h-full place-items-center text-sm font-bold text-slate-400">No photo</div>
+        )}
+        <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-[11px] font-bold shadow-sm ${
+          listing.isListed ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-700"
+        }`}>
+          {listing.isListed ? "Listed" : "Unlisted"}
+        </span>
+      </div>
+      <div className="p-5">
+        <h3 className="truncate text-lg font-bold">{listing.title || "CloudStay listing"}</h3>
+        <p className="mt-1 truncate text-sm text-slate-500">{listing.location || "Location unavailable"}</p>
+        <p className="mt-4 text-sm font-bold text-slate-950">
+          RM {listing.pricePerNight} <span className="font-normal text-slate-500">night</span>
+        </p>
+      </div>
+    </button>
+  );
+}
+
+function HostProfileView({ data, profile, onEdit, onListingOpen }) {
+  const [showAllReviews, setShowAllReviews] = useState(false);
+  const reviews = data?.hostReviews || [];
+  const listings = data?.listings || [];
+  const visibleReviews = reviews.slice(0, 3);
+  const profileItems = profileFields
+    .map(([key, label]) => [label, profile[key]])
+    .filter(([, value]) => String(value || "").trim());
+
+  return (
+    <div className="space-y-12">
+      <section>
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight">Host Profile</h1>
+            <p className="mt-3 max-w-2xl text-slate-500">
+              Your host profile highlights guest feedback, hosting history, and active listings.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onEdit}
+            className="w-fit rounded-full bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
+          >
+            Edit profile
+          </button>
+        </div>
+
+        <div className="mt-7 grid overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm md:grid-cols-[1fr_240px]">
+          <div className="p-8 sm:p-10">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+              <div className="grid h-32 w-32 shrink-0 place-items-center rounded-full bg-slate-950 text-5xl font-bold text-white">
+                {(data?.username || "H").slice(0, 1).toUpperCase()}
+              </div>
+              <div>
+                <h2 className="text-3xl font-bold">{data?.username || "CloudStay host"}</h2>
+                <p className="mt-1 text-sm font-semibold text-slate-500">CloudStay host</p>
+                {profile.livesIn && <p className="mt-3 text-sm font-semibold text-slate-700">{profile.livesIn}</p>}
+              </div>
+            </div>
+
+            {profile.aboutMe ? (
+              <p className="mt-8 max-w-3xl text-base leading-8 text-slate-700">{profile.aboutMe}</p>
+            ) : (
+              <div className="mt-8 rounded-2xl border border-dashed border-slate-300 p-5">
+                <p className="font-bold text-slate-800">Add a short intro for guests</p>
+                <p className="mt-1 text-sm text-slate-500">Share your hosting style and what guests can expect.</p>
+              </div>
+            )}
+
+            {profileItems.length > 0 && (
+              <div className="mt-8 border-t border-slate-200 pt-8">
+                <div className="grid gap-x-10 gap-y-6 sm:grid-cols-2">
+                  {profileItems.map(([label, value]) => (
+                    <div key={label}>
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{label}</p>
+                      <p className="mt-1 text-base font-semibold leading-7 text-slate-800">{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-slate-200 px-7 py-5 md:border-l md:border-t-0">
+            {[
+              [data?.hostReviewCount || 0, "reviews received"],
+              [data?.hostReviewCount ? formatHostRating(data.averageHostRating) : "No ratings yet", "average host rating"],
+              [getHostDuration(data?.hostSince), "as host on CloudStay"],
+            ].map(([value, label], index) => (
+              <div key={label} className={index > 0 ? "border-t border-slate-200 py-5" : "pb-5"}>
+                <p className="text-xl font-extrabold text-slate-950">{value}</p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">{label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-slate-200 pt-10">
+        <h2 className="text-3xl font-bold tracking-tight">Reviews written for me by guests</h2>
+        {reviews.length === 0 ? (
+          <div className="mt-6 rounded-[2rem] border border-dashed border-slate-300 bg-white p-10">
+            <p className="font-bold">No host reviews yet.</p>
+            <p className="mt-2 text-sm text-slate-500">Guest feedback about your hosting will appear here after reviewed stays.</p>
+          </div>
+        ) : (
+          <>
+            <div className="mt-6 grid gap-5 md:grid-cols-3">
+              {visibleReviews.map((review) => (
+                <HostReviewCard key={review.id} review={review} />
+              ))}
+            </div>
+            {reviews.length > 3 && (
+              <button
+                type="button"
+                onClick={() => setShowAllReviews(true)}
+                className="mt-6 rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:border-slate-400"
+              >
+                Show more reviews
+              </button>
+            )}
+          </>
+        )}
+      </section>
+
+      <section className="border-t border-slate-200 pt-10">
+        <h2 className="text-3xl font-bold tracking-tight">My listings</h2>
+        {listings.length === 0 ? (
+          <div className="mt-6 rounded-[2rem] border border-dashed border-slate-300 bg-white p-10">
+            <p className="font-bold">No listings yet</p>
+            <p className="mt-2 text-sm text-slate-500">Your hosted stays will appear here.</p>
+          </div>
+        ) : (
+          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {listings.map((listing) => (
+              <HostListingCard
+                key={listing.id}
+                listing={listing}
+                onOpen={() => onListingOpen(listing.id)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {showAllReviews && (
+        <HostReviewsModal reviews={reviews} onClose={() => setShowAllReviews(false)} />
+      )}
     </div>
   );
 }
@@ -636,8 +879,13 @@ function ProfilePage() {
   const [savedProfile, setSavedProfile] = useState(null);
   const [trips, setTrips] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [profileMode, setProfileMode] = useState("guest");
+  const [hostProfile, setHostProfile] = useState(null);
+  const [hostProfileLoading, setHostProfileLoading] = useState(false);
+  const [hostProfileError, setHostProfileError] = useState("");
   const [loading, setLoading] = useState(true);
   const profile = useMemo(() => savedProfile ?? buildProfile(user), [savedProfile, user]);
+  const activeProfileMode = user?.isHost ? profileMode : "guest";
 
   const loadProfileData = useCallback(() => {
     Promise.allSettled([getMyTrips(), getMyReviews()])
@@ -651,6 +899,36 @@ function ProfilePage() {
   useEffect(() => {
     loadProfileData();
   }, [loadProfileData]);
+
+  useEffect(() => {
+    if (!user?.isHost || activeProfileMode !== "host") return undefined;
+
+    let active = true;
+    const loadId = window.setTimeout(() => {
+      setHostProfileLoading(true);
+      setHostProfileError("");
+
+      getMyHostProfile()
+        .then((data) => {
+          if (active) setHostProfile(data);
+        })
+        .catch((requestError) => {
+          if (active) {
+            setHostProfileError(
+              requestError.response?.data?.message || "Could not load host profile.",
+            );
+          }
+        })
+        .finally(() => {
+          if (active) setHostProfileLoading(false);
+        });
+    }, 0);
+
+    return () => {
+      active = false;
+      window.clearTimeout(loadId);
+    };
+  }, [activeProfileMode, user?.isHost]);
 
   useEffect(() => {
     const refresh = (event) => {
@@ -702,7 +980,29 @@ function ProfilePage() {
           </aside>
 
           <div className="min-w-0 lg:pl-4">
-            {activeSection === "about-me" && (
+            {user?.isHost && activeSection === "about-me" && (
+              <div className="mb-8 inline-flex rounded-full bg-white p-1 shadow-sm" aria-label="Profile mode">
+                {[
+                  ["guest", "Guest Profile"],
+                  ["host", "Host Profile"],
+                ].map(([mode, label]) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => setProfileMode(mode)}
+                    className={`rounded-full px-5 py-2.5 text-sm font-bold transition ${
+                      activeProfileMode === mode
+                        ? "bg-slate-950 text-white"
+                        : "text-slate-600 hover:bg-slate-100"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {activeSection === "about-me" && activeProfileMode === "guest" && (
               <ProfileHero
                 user={user}
                 profile={profile}
@@ -710,6 +1010,23 @@ function ProfilePage() {
                 reviews={reviews}
                 onEdit={() => navigate("/profile/edit-profile")}
               />
+            )}
+            {activeSection === "about-me" && activeProfileMode === "host" && (
+              hostProfileLoading ? (
+                <p className="rounded-[2rem] bg-white p-8 text-sm text-slate-500">Loading host profile...</p>
+              ) : hostProfileError ? (
+                <div className="rounded-[2rem] border border-rose-100 bg-rose-50 p-8">
+                  <p className="font-bold text-rose-700">Host profile unavailable</p>
+                  <p className="mt-2 text-sm text-rose-600">{hostProfileError}</p>
+                </div>
+              ) : (
+                <HostProfileView
+                  data={hostProfile}
+                  profile={profile}
+                  onEdit={() => navigate("/profile/edit-profile")}
+                  onListingOpen={(listingId) => navigate(`/properties/${listingId}`)}
+                />
+              )
             )}
             {activeSection === "edit-profile" && (
               <EditProfile

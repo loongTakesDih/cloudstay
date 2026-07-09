@@ -154,6 +154,7 @@ public class ReviewsController : ControllerBase
         }
 
         var booking = await _context.Bookings
+            .Include(item => item.Property)
             .FirstOrDefaultAsync(item => item.Id == request.BookingId && item.GuestId == userId);
 
         if (booking == null)
@@ -172,6 +173,11 @@ public class ReviewsController : ControllerBase
             return BadRequest(new { message = eligibility.Reason });
         }
 
+        if (booking.Property?.HostId == userId)
+        {
+            return BadRequest(new { message = "You cannot review yourself as a host." });
+        }
+
         var review = new Review
         {
             BookingId = booking.Id,
@@ -185,6 +191,8 @@ public class ReviewsController : ControllerBase
             LocationRating = request.LocationRating,
             ValueRating = request.ValueRating,
             Comment = request.Comment.Trim(),
+            HostRating = request.HostRating,
+            HostReviewComment = EmptyToNull(request.HostReviewComment),
             CreatedAt = DateTime.UtcNow
         };
 
@@ -257,6 +265,11 @@ public class ReviewsController : ControllerBase
     {
         var value = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return int.TryParse(value, out userId);
+    }
+
+    private static string? EmptyToNull(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
     private record ReviewEligibility(bool CanReview, string Reason, DateTime? ReviewDeadline);

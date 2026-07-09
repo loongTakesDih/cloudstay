@@ -31,4 +31,10 @@ public class CreateReviewDto
     [Required]
     [StringLength(2000, MinimumLength = 10)]
     public string Comment { get; set; } = string.Empty;
+
+    [Range(1, 5)]
+    public int? HostRating { get; set; }
+
+    [StringLength(2000)]
+    public string? HostReviewComment { get; set; }
 }

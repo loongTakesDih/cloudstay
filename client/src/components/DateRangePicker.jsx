@@ -20,12 +20,28 @@ const sameDay = (left, right) =>
   left.getMonth() === right.getMonth() &&
   left.getDate() === right.getDate();
 
+const parseBlockedRanges = (ranges = []) =>
+  ranges
+    .map((range) => ({
+      start: fromDateValue(String(range.checkIn || range.start || "").slice(0, 10)),
+      end: fromDateValue(String(range.checkOut || range.end || "").slice(0, 10)),
+    }))
+    .filter((range) => range.start && range.end);
+
+const dateInBlockedRange = (day, blockedRanges) =>
+  blockedRanges.some((range) => day >= range.start && day < range.end);
+
+const rangeOverlapsBlocked = (start, end, blockedRanges) =>
+  blockedRanges.some((range) => start < range.end && end > range.start);
+
 function DateRangePicker({
   startDate,
   endDate,
   onChange,
   minDate = toDateValue(new Date()),
   maxDate,
+  disabledRanges = [],
+  onBlockedSelection,
 }) {
   const initialDate = fromDateValue(startDate) || fromDateValue(minDate) || new Date();
   const [visibleMonth, setVisibleMonth] = useState(
@@ -48,8 +64,17 @@ function DateRangePicker({
   const end = fromDateValue(endDate);
   const minimum = fromDateValue(minDate);
   const maximum = fromDateValue(maxDate);
+  const blockedRanges = useMemo(
+    () => parseBlockedRanges(disabledRanges),
+    [disabledRanges],
+  );
 
   const selectDate = (day) => {
+    if (dateInBlockedRange(day, blockedRanges)) {
+      onBlockedSelection?.();
+      return;
+    }
+
     const value = toDateValue(day);
 
     if (!startDate || endDate) {
@@ -58,6 +83,11 @@ function DateRangePicker({
     }
 
     if (day <= start) return;
+    if (rangeOverlapsBlocked(start, day, blockedRanges)) {
+      onBlockedSelection?.();
+      return;
+    }
+
     onChange({ startDate, endDate: value });
   };
 
@@ -91,7 +121,8 @@ function DateRangePicker({
           const disabled =
             (minimum && day < minimum) ||
             (maximum && day > maximum) ||
-            (start && !end && day <= start);
+            (start && !end && day <= start) ||
+            dateInBlockedRange(day, blockedRanges);
           const selected = sameDay(day, start) || sameDay(day, end);
           const inRange = start && end && day > start && day < end;
 

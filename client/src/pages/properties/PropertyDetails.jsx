@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   getProperty,
   getPropertyAvailability,
+  getHostProfile,
   getOrCreatePropertyConversation,
   publishListing,
   unpublishListing,
@@ -55,6 +56,28 @@ const compactList = (items) =>
   items
     .map(([label, value]) => ({ label, value }))
     .filter((item) => item.value !== null && item.value !== undefined && String(item.value).trim() !== "");
+
+const formatRating = (value) => {
+  const rating = Number(value);
+  return Number.isFinite(rating) ? rating.toFixed(1) : null;
+};
+
+const hostInitial = (host) => (host?.username || "H").slice(0, 1).toUpperCase();
+
+const getHostDuration = (hostSince) => {
+  if (!hostSince) return "New host";
+  const started = new Date(hostSince);
+  if (Number.isNaN(started.getTime())) return "New host";
+
+  const diffMs = Date.now() - started.getTime();
+  if (diffMs < 24 * 60 * 60 * 1000) return "Less than a day";
+
+  const days = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+  return `${days} day${days === 1 ? "" : "s"}`;
+};
+
+const renderStars = (rating) =>
+  "*".repeat(Math.max(0, Math.min(5, Math.round(Number(rating) || 0))));
 
 function PropertyPhotoGallery({ imageUrl, imageUrls = [], title }) {
   const photos = imageUrls.length > 0 ? imageUrls : imageUrl ? [imageUrl] : [];
@@ -263,6 +286,354 @@ function HostInfoCard({ host }) {
         </p>
       </div>
     </section>
+  );
+}
+
+function HostAvatar({ host, sizeClass = "h-16 w-16", textClass = "text-xl" }) {
+  if (host?.profilePictureUrl) {
+    return (
+      <img
+        src={host.profilePictureUrl}
+        alt={host.username || "CloudStay host"}
+        className={`${sizeClass} rounded-full object-cover`}
+      />
+    );
+  }
+
+  return (
+    <div className={`grid ${sizeClass} place-items-center rounded-full bg-rose-100 font-bold text-rose-600 ${textClass}`}>
+      {hostInitial(host)}
+    </div>
+  );
+}
+
+function HostReviewCard({ review }) {
+  return (
+    <article className="rounded-3xl border border-slate-200 bg-white p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="font-bold text-slate-950">{review.guestName || "Guest"}</h3>
+          <p className="mt-1 text-xs font-semibold text-slate-500">{formatDate(review.createdAt)}</p>
+        </div>
+        <span className="shrink-0 text-sm font-bold text-amber-500">{renderStars(review.rating)}</span>
+      </div>
+      <p className="mt-4 text-sm leading-7 text-slate-600">
+        {review.comment || "No written host review."}
+      </p>
+      <p className="mt-4 truncate text-xs font-bold uppercase tracking-wide text-slate-400">
+        {review.propertyTitle || "CloudStay property"}
+      </p>
+    </article>
+  );
+}
+
+function HostListingCard({ listing, onOpen }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="overflow-hidden rounded-3xl border border-slate-200 bg-white text-left transition hover:-translate-y-0.5 hover:shadow-lg"
+    >
+      <div className="relative h-40 bg-gradient-to-br from-slate-100 to-rose-50">
+        {listing.imageUrl ? (
+          <img src={listing.imageUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <div className="grid h-full place-items-center text-sm font-bold text-slate-400">No photo</div>
+        )}
+        <span className={`absolute left-3 top-3 rounded-full px-3 py-1 text-[11px] font-bold shadow-sm ${
+          listing.isListed ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-700"
+        }`}>
+          {listing.isListed ? "Listed" : "Unlisted"}
+        </span>
+      </div>
+      <div className="p-5">
+        <h3 className="truncate text-lg font-bold">{listing.title || "CloudStay listing"}</h3>
+        <p className="mt-1 truncate text-sm text-slate-500">{listing.location || "Location unavailable"}</p>
+        <p className="mt-4 text-sm font-bold text-slate-950">
+          RM {listing.pricePerNight} <span className="font-normal text-slate-500">night</span>
+        </p>
+      </div>
+    </button>
+  );
+}
+
+function HostProfileShowcase({ hostProfile, onListingOpen }) {
+  const reviews = hostProfile?.hostReviews || [];
+  const listings = hostProfile?.listings || [];
+  const visibleReviews = reviews.slice(0, 3);
+  const profileDetails = hostProfile?.profileDetails || [];
+
+  return (
+    <div className="space-y-12">
+      <section>
+        <div className="grid overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm md:grid-cols-[1fr_240px]">
+          <div className="p-8 sm:p-10">
+            <div className="flex flex-col gap-6 sm:flex-row sm:items-center">
+              <HostAvatar
+                host={hostProfile}
+                sizeClass="h-32 w-32"
+                textClass="text-5xl"
+              />
+              <div>
+                <h2 className="text-3xl font-bold">{hostProfile?.username || "CloudStay host"}</h2>
+                <p className="mt-1 text-sm font-semibold text-slate-500">CloudStay host</p>
+                {hostProfile?.livesIn && (
+                  <p className="mt-3 text-sm font-semibold text-slate-700">{hostProfile.livesIn}</p>
+                )}
+              </div>
+            </div>
+
+            {hostProfile?.aboutMe ? (
+              <p className="mt-8 max-w-3xl text-base leading-8 text-slate-700">{hostProfile.aboutMe}</p>
+            ) : (
+              <div className="mt-8 rounded-2xl border border-dashed border-slate-300 p-5">
+                <p className="font-bold text-slate-800">No host intro yet</p>
+                <p className="mt-1 text-sm text-slate-500">This host has not added an about section yet.</p>
+              </div>
+            )}
+
+            {profileDetails.length > 0 && (
+              <div className="mt-8 border-t border-slate-200 pt-8">
+                <div className="grid gap-x-10 gap-y-6 sm:grid-cols-2">
+                  {profileDetails.map((item) => (
+                    <div key={item.label}>
+                      <p className="text-xs font-bold uppercase tracking-wide text-slate-400">{item.label}</p>
+                      <p className="mt-1 text-base font-semibold leading-7 text-slate-800">{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="border-t border-slate-200 px-7 py-5 md:border-l md:border-t-0">
+            {[
+              [hostProfile?.hostReviewCount || 0, "reviews received"],
+              [hostProfile?.hostReviewCount ? formatRating(hostProfile.averageHostRating) : "No ratings yet", "average host rating"],
+              [getHostDuration(hostProfile?.hostSince), "as host on CloudStay"],
+            ].map(([value, label], index) => (
+              <div key={label} className={index > 0 ? "border-t border-slate-200 py-5" : "pb-5"}>
+                <p className="text-xl font-extrabold text-slate-950">{value}</p>
+                <p className="mt-1 text-xs font-semibold text-slate-500">{label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-slate-200 pt-10">
+        <h2 className="text-3xl font-bold tracking-tight">Reviews written for this host</h2>
+        {reviews.length === 0 ? (
+          <div className="mt-6 rounded-[2rem] border border-dashed border-slate-300 bg-white p-10">
+            <p className="font-bold">No host reviews yet.</p>
+            <p className="mt-2 text-sm text-slate-500">Guest feedback about this host will appear here after reviewed stays.</p>
+          </div>
+        ) : (
+          <div className="mt-6 grid gap-5 md:grid-cols-3">
+            {visibleReviews.map((review) => (
+              <HostReviewCard key={review.id} review={review} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="border-t border-slate-200 pt-10">
+        <h2 className="text-3xl font-bold tracking-tight">Listings</h2>
+        {listings.length === 0 ? (
+          <div className="mt-6 rounded-[2rem] border border-dashed border-slate-300 bg-white p-10">
+            <p className="font-bold">No public listings yet</p>
+            <p className="mt-2 text-sm text-slate-500">This host does not have other public stays right now.</p>
+          </div>
+        ) : (
+          <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {listings.map((listing) => (
+              <HostListingCard
+                key={listing.id}
+                listing={listing}
+                onOpen={() => onListingOpen(listing.id)}
+              />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function HostProfileModal({ host, onClose, onListingOpen }) {
+  const [hostProfile, setHostProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") onClose();
+    };
+
+    document.addEventListener("keydown", closeOnEscape);
+    return () => document.removeEventListener("keydown", closeOnEscape);
+  }, [onClose]);
+
+  useEffect(() => {
+    let active = true;
+    const hostId = host?.hostId || host?.id;
+
+    const loadId = window.setTimeout(async () => {
+      if (!hostId) {
+        setLoading(false);
+        setError("Host profile is unavailable.");
+        return;
+      }
+
+      try {
+        const data = await getHostProfile(hostId);
+        if (active) {
+          setHostProfile(data);
+          setError("");
+        }
+      } catch (requestError) {
+        if (active) {
+          setError(requestError.response?.data?.message || "Could not load host profile.");
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }, 0);
+
+    return () => {
+      active = false;
+      window.clearTimeout(loadId);
+    };
+  }, [host]);
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Host profile"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="w-full max-w-6xl overflow-hidden rounded-[2rem] bg-[#fffaf7] shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-6">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-950">Host Profile</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              {host?.username || "CloudStay host"}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-slate-200 text-xl text-slate-600 transition hover:bg-slate-50"
+            aria-label="Close host profile"
+          >
+            x
+          </button>
+        </div>
+
+        <div className="max-h-[82vh] overflow-y-auto p-6">
+          {loading ? (
+            <p className="rounded-[2rem] bg-white p-8 text-sm text-slate-500">Loading host profile...</p>
+          ) : error ? (
+            <div className="rounded-[2rem] border border-rose-100 bg-rose-50 p-8">
+              <p className="font-bold text-rose-700">Host profile unavailable</p>
+              <p className="mt-2 text-sm text-rose-600">{error}</p>
+            </div>
+          ) : (
+            <HostProfileShowcase
+              hostProfile={hostProfile}
+              onListingOpen={onListingOpen}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MeetHostSection({
+  host,
+  isOwner,
+  user,
+  openingChat,
+  chatError,
+  onMessageHost,
+  onListingOpen,
+}) {
+  const [showProfile, setShowProfile] = useState(false);
+  const rating = formatRating(host?.averageRating);
+  const hostDuration = getHostDuration(host?.hostSince);
+
+  return (
+    <>
+      <section className="border-b border-slate-200 py-8">
+        <h2 className="text-xl font-bold text-slate-950">Meet your host</h2>
+        <div className="mt-5 grid gap-5 md:grid-cols-[minmax(20rem,0.95fr)_minmax(0,1.05fr)] md:items-stretch">
+          <button
+            type="button"
+            onClick={() => setShowProfile(true)}
+            className="grid gap-5 rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:border-slate-300 hover:shadow-md sm:grid-cols-[minmax(8rem,0.9fr)_minmax(9rem,1fr)]"
+          >
+            <div className="flex min-w-0 flex-col items-center justify-center text-center">
+              <HostAvatar host={host} sizeClass="h-20 w-20" textClass="text-2xl" />
+              <h3 className="mt-4 max-w-full break-words text-lg font-bold leading-6 text-slate-950">
+                {host?.username || "CloudStay host"}
+              </h3>
+              <p className="mt-1 text-sm font-semibold text-slate-500">CloudStay host</p>
+            </div>
+            <div className="grid content-center divide-y divide-slate-100 text-sm">
+              <div className="py-3 first:pt-0">
+                <p className="text-xl font-extrabold text-slate-950">{host?.reviewCount || 0}</p>
+                <p className="text-xs font-semibold text-slate-500">Reviews</p>
+              </div>
+              <div className="py-3">
+                <p className="text-xl font-extrabold text-slate-950">{rating || "New"}</p>
+                <p className="text-xs font-semibold text-slate-500">Rating</p>
+              </div>
+              <div className="py-3 last:pb-0">
+                <p className="text-xl font-extrabold text-slate-950">{hostDuration}</p>
+                <p className="text-xs font-semibold text-slate-500">Years hosting</p>
+              </div>
+            </div>
+          </button>
+
+          <div className="p-1 md:p-5">
+            <h3 className="text-base font-bold text-slate-950">About {host?.username || "this host"}</h3>
+            <p className="mt-3 text-sm leading-7 text-slate-600">
+              {host?.aboutMe || "This host has not added an about section yet."}
+            </p>
+            {chatError && (
+              <p role="alert" className="mt-4 text-sm font-semibold text-rose-600">
+                {chatError}
+              </p>
+            )}
+            <button
+              type="button"
+              onClick={onMessageHost}
+              disabled={openingChat || isOwner}
+              className="mt-5 rounded-full bg-slate-950 px-5 py-3 text-sm font-bold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {!user
+                ? "Log in to message host"
+                : openingChat
+                  ? "Opening chat..."
+                  : "Message your host"}
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {showProfile && (
+        <HostProfileModal
+          host={host}
+          onClose={() => setShowProfile(false)}
+          onListingOpen={onListingOpen}
+        />
+      )}
+    </>
   );
 }
 
@@ -529,6 +900,7 @@ function PropertyBookingCard({ listing, user }) {
   const [activePicker, setActivePicker] = useState("");
   const [showModal, setShowModal] = useState(false);
   const [availability, setAvailability] = useState(null);
+  const [dateConflictMessage, setDateConflictMessage] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -587,6 +959,9 @@ function PropertyBookingCard({ listing, user }) {
     );
   const isValidDates = baseDatesValid && !overlapsBlockedDates;
   const guestCountValid = getGuestTotal(guests) <= Number(listing.guestCount || 0);
+  const dateValidationMessage = overlapsBlockedDates
+    ? "Those dates include an unavailable night."
+    : dateConflictMessage;
   
   return (
     <>
@@ -615,7 +990,12 @@ function PropertyBookingCard({ listing, user }) {
                 endDate={checkOut}
                 minDate={minimumDate}
                 maxDate={availableTo}
+                disabledRanges={availability?.blockedRanges || []}
+                onBlockedSelection={() =>
+                  setDateConflictMessage("Those dates include an unavailable night.")
+                }
                 onChange={({ startDate, endDate }) => {
+                  setDateConflictMessage("");
                   setCheckIn(startDate);
                   setCheckOut(endDate);
                 }}
@@ -661,10 +1041,10 @@ function PropertyBookingCard({ listing, user }) {
           </button>
         )}
 
-        {user && !listing.isOwner && (!isValidDates || !guestCountValid) && (
+        {user && !listing.isOwner && (!isValidDates || !guestCountValid || dateConflictMessage) && (
           <p className="mt-3 text-center text-xs font-semibold text-slate-500">
-            {overlapsBlockedDates
-              ? "Those dates include an unavailable night."
+            {dateValidationMessage
+              ? dateValidationMessage
               : "Select valid dates and a guest count within this listing's limit."}
           </p>
         )}
@@ -811,7 +1191,7 @@ function PropertyDetails() {
         }
       />
 
-      <main className="mx-auto max-w-[1440px] px-4 py-8 sm:px-6 lg:px-10">
+      <main className="mx-auto w-full max-w-[1280px] px-4 py-8 sm:px-6 lg:px-8">
         <div className="grid gap-5">
           <HostControlBanner
             listing={listing}
@@ -857,7 +1237,7 @@ function PropertyDetails() {
             title={listing.title}
           />
 
-          <section className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_380px]">
+          <section className="grid items-start gap-10 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_360px]">
             <div className="min-w-0">
               <PropertySummary listing={listing} />
               <HostInfoCard host={listing.host} />
@@ -876,33 +1256,15 @@ function PropertyDetails() {
 
               <PropertyReviews propertyId={listing.id} />
 
-              <section className="border-b border-slate-200 py-6">
-                <h2 className="text-xl font-bold text-slate-950">Meet your host</h2>
-                <p className="mt-3 text-sm font-semibold text-slate-600">
-                  {listing.host?.username || "CloudStay host"} · CloudStay Host · Member since {formatMemberSince(listing.host?.createdAt)}
-                </p>
-                {!listing.isOwner && (
-                  <>
-                    {chatError && (
-                      <p role="alert" className="mt-3 text-sm font-semibold text-rose-600">
-                        {chatError}
-                      </p>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleMessageHost}
-                      disabled={openingChat}
-                      className="mt-4 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition hover:border-rose-300 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400"
-                    >
-                      {!user
-                        ? "Log in to message host"
-                        : openingChat
-                          ? "Opening chat..."
-                          : "Message host"}
-                    </button>
-                  </>
-                )}
-              </section>
+              <MeetHostSection
+                host={listing.host}
+                isOwner={listing.isOwner}
+                user={user}
+                openingChat={openingChat}
+                chatError={chatError}
+                onMessageHost={handleMessageHost}
+                onListingOpen={(listingId) => navigate(`/properties/${listingId}`)}
+              />
 
               <ThingsToKnow listing={listing} />
             </div>

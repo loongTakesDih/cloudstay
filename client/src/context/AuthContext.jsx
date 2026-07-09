@@ -52,6 +52,7 @@ const normalizeAuthResponse = (data) => {
       email: source.email ?? source.Email ?? "",
       role: source.role ?? source.Role ?? "User",
       isHost: toBoolean(source.isHost ?? source.IsHost),
+      hostSince: source.hostSince ?? source.HostSince,
       createdAt: source.createdAt ?? source.CreatedAt ?? source.created_at,
       dreamDestination: getField(source, "dreamDestination", "DreamDestination"),
       work: getField(source, "work", "Work"),

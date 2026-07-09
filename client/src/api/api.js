@@ -55,6 +55,16 @@ export const updateMyProfile = async (payload) => {
   return response.data;
 };
 
+export const getMyHostProfile = async () => {
+  const response = await api.get("/auth/me/host-profile");
+  return response.data;
+};
+
+export const getHostProfile = async (hostId) => {
+  const response = await api.get(`/auth/hosts/${hostId}/profile`);
+  return response.data;
+};
+
 // ==========================================
 // HOSTING & PROPERTIES
 // ==========================================

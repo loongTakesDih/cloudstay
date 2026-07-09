@@ -42,7 +42,9 @@ function StarRating({ label, onChange, value }) {
 function ReviewForm({ bookingId }) {
   const [eligibility, setEligibility] = useState(null);
   const [ratings, setRatings] = useState(initialRatings);
+  const [hostRating, setHostRating] = useState(0);
   const [comment, setComment] = useState("");
+  const [hostReviewComment, setHostReviewComment] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -76,6 +78,11 @@ function ReviewForm({ bookingId }) {
       return;
     }
 
+    if (hostRating === 0) {
+      setError("Please rate your host.");
+      return;
+    }
+
     if (comment.trim().length < 10) {
       setError("Please write at least 10 characters about your stay.");
       return;
@@ -87,6 +94,8 @@ function ReviewForm({ bookingId }) {
         bookingId: Number(bookingId),
         ...ratings,
         comment: comment.trim(),
+        hostRating,
+        hostReviewComment: hostReviewComment.trim() || null,
       });
       setSubmitted(true);
     } catch (requestError) {
@@ -153,6 +162,31 @@ function ReviewForm({ bookingId }) {
           className="mt-2 w-full rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
         />
       </label>
+
+      <section className="mt-8 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+        <h4 className="text-lg font-bold text-slate-950">Rate your host</h4>
+        <p className="mt-1 text-sm text-slate-500">
+          This helps future guests understand the hosting experience.
+        </p>
+        <div className="mt-5">
+          <StarRating
+            label="Host rating"
+            value={hostRating}
+            onChange={setHostRating}
+          />
+        </div>
+        <label className="mt-5 block">
+          <span className="text-sm font-bold text-slate-800">Host review</span>
+          <textarea
+            value={hostReviewComment}
+            onChange={(event) => setHostReviewComment(event.target.value)}
+            maxLength={2000}
+            rows={4}
+            placeholder="Optional: what stood out about your host?"
+            className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-rose-400 focus:ring-2 focus:ring-rose-100"
+          />
+        </label>
+      </section>
 
       {error && <p className="mt-3 text-sm font-semibold text-rose-600">{error}</p>}
 

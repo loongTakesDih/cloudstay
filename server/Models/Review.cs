@@ -50,5 +50,11 @@ public class Review
     [MaxLength(2000)]
     public string Comment { get; set; } = string.Empty;
 
+    [Range(1, 5)]
+    public int? HostRating { get; set; }
+
+    [MaxLength(2000)]
+    public string? HostReviewComment { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

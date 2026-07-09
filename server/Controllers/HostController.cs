@@ -66,6 +66,11 @@ public class HostController : ControllerBase
             isListed: false);
 
         property.IsAvailable = true;
+        if (!user.IsHost || user.HostSince == null)
+        {
+            user.HostSince ??= DateTime.UtcNow;
+        }
+
         user.IsHost = true;
 
         _context.Properties.Add(property);
@@ -95,7 +100,9 @@ public class HostController : ControllerBase
                 Username = user.Username,
                 Email = user.Email,
                 Role = user.Role,
-                IsHost = user.IsHost
+                IsHost = user.IsHost,
+                HostSince = user.HostSince,
+                CreatedAt = user.CreatedAt
             },
             Listing = PropertiesController.MapProperty(
                 property,

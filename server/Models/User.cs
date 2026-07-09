@@ -22,6 +22,8 @@ public class User
 
     public bool IsHost { get; set; } = false;
 
+    public DateTime? HostSince { get; set; }
+
     public string? DreamDestination { get; set; }
 
     public string? Work { get; set; }

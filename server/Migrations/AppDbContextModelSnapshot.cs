@@ -379,6 +379,13 @@ namespace server.Migrations
                     b.Property<int>("GuestId")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("HostRating")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("HostReviewComment")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
                     b.Property<int>("LocationRating")
                         .HasColumnType("integer");
 
@@ -425,6 +432,9 @@ namespace server.Migrations
                         .HasColumnType("text");
 
                     b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("HostSince")
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("DreamDestination")

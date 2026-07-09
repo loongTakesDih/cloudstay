@@ -166,6 +166,11 @@ public class AuthService
             return null;
         }
 
+        if (!user.IsHost || user.HostSince == null)
+        {
+            user.HostSince ??= DateTime.UtcNow;
+        }
+
         user.IsHost = true;
         await _context.SaveChangesAsync();
 
@@ -226,6 +231,7 @@ public class AuthService
             Email = user.Email,
             Role = user.Role,
             IsHost = user.IsHost,
+            HostSince = user.HostSince,
             CreatedAt = user.CreatedAt,
             DreamDestination = user.DreamDestination,
             Work = user.Work,

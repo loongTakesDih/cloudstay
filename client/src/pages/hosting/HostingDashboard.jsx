@@ -4,6 +4,7 @@ import {
   deleteListing,
   getBookingRequests,
   getMyListings,
+  getProperty,
   publishListing,
   unpublishListing,
   updateListing,
@@ -96,6 +97,11 @@ const buildEditForm = (listing) => ({
   availableFrom: toDateValue(listing.availableFrom),
   availableTo: toDateValue(listing.availableTo),
   isAvailable: listing.isAvailable ?? true,
+  imageUrls: listing.imageUrls?.length
+    ? listing.imageUrls
+    : listing.imageUrl
+      ? [listing.imageUrl]
+      : [],
 });
 
 function YesNoField({ label, value, onChange }) {
@@ -130,6 +136,17 @@ function EmptyState({ title, message }) {
     <div className="rounded-3xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
       <h3 className="text-xl font-bold text-slate-950">{title}</h3>
       <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">{message}</p>
+    </div>
+  );
+}
+
+function EditorLoadingModal({ title }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-sm rounded-3xl bg-white p-6 text-center shadow-2xl">
+        <p className="text-sm font-bold text-slate-950">Loading listing details...</p>
+        <p className="mt-2 text-sm text-slate-500">{title || "Preparing the editor."}</p>
+      </div>
     </div>
   );
 }
@@ -322,8 +339,30 @@ function ListingEditorModal({ listing, onClose, onSaved }) {
                 {[["guestCount", "Guests", 1], ["bedroomCount", "Bedrooms", 0], ["bedCount", "Beds", 0], ["bathroomCount", "Bathrooms", 0]].map(([field, label, min]) => (
                   <label key={field}><span className="mb-2 block text-sm font-bold">{label}</span><input type="number" min={min} value={form[field]} onChange={(event) => update(field, event.target.value)} className="w-full rounded-2xl border border-slate-300 px-4 py-3" /></label>
                 ))}
-                <div className="sm:col-span-2 rounded-2xl border border-dashed border-slate-300 p-5 text-center">
-                  <button type="button" onClick={() => setError("Photo upload is not available yet.")} className="rounded-full border border-slate-300 px-5 py-2.5 text-sm font-bold">Add photos</button>
+                <div className="sm:col-span-2 rounded-2xl border border-dashed border-slate-300 p-5">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm font-bold">Photos</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">
+                        {form.imageUrls.length
+                          ? `${form.imageUrls.length} existing photo${form.imageUrls.length === 1 ? "" : "s"} will be kept.`
+                          : "No photos are attached to this listing yet."}
+                      </p>
+                    </div>
+                    <button type="button" onClick={() => setError("Photo upload is not available yet.")} className="rounded-full border border-slate-300 px-5 py-2.5 text-sm font-bold">Add photos</button>
+                  </div>
+                  {form.imageUrls.length > 0 && (
+                    <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
+                      {form.imageUrls.slice(0, 6).map((imageUrl, index) => (
+                        <img
+                          key={`${imageUrl}-${index}`}
+                          src={imageUrl}
+                          alt=""
+                          className="h-20 w-28 shrink-0 rounded-2xl object-cover"
+                        />
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -337,11 +376,11 @@ function ListingEditorModal({ listing, onClose, onSaved }) {
                     <p className="mt-2 text-xs font-semibold">Complete the fields below only when you want to upgrade this listing to the structured address format.</p>
                   </div>
                 )}
-                <label className="sm:col-span-2"><span className="mb-2 block text-sm font-bold">Unit and street address</span><input required value={form.addressLine} onChange={(event) => update("addressLine", event.target.value)} className="w-full rounded-2xl border border-slate-300 px-4 py-3" /></label>
-                <label><span className="mb-2 block text-sm font-bold">City</span><input required list="hosting-cities" value={form.city} onChange={(event) => update("city", event.target.value)} className="w-full rounded-2xl border border-slate-300 px-4 py-3" /><datalist id="hosting-cities">{popularCities.map((city) => <option key={city} value={city} />)}</datalist></label>
-                <label><span className="mb-2 block text-sm font-bold">State</span><input required value={form.state} onChange={(event) => update("state", event.target.value)} className="w-full rounded-2xl border border-slate-300 px-4 py-3" /></label>
+                <label className="sm:col-span-2"><span className="mb-2 block text-sm font-bold">Unit and street address</span><input required={!form.legacyAddress} value={form.addressLine} onChange={(event) => update("addressLine", event.target.value)} className="w-full rounded-2xl border border-slate-300 px-4 py-3" /></label>
+                <label><span className="mb-2 block text-sm font-bold">City</span><input required={!form.legacyAddress} list="hosting-cities" value={form.city} onChange={(event) => update("city", event.target.value)} className="w-full rounded-2xl border border-slate-300 px-4 py-3" /><datalist id="hosting-cities">{popularCities.map((city) => <option key={city} value={city} />)}</datalist></label>
+                <label><span className="mb-2 block text-sm font-bold">State</span><input required={!form.legacyAddress} value={form.state} onChange={(event) => update("state", event.target.value)} className="w-full rounded-2xl border border-slate-300 px-4 py-3" /></label>
                 <label><span className="mb-2 block text-sm font-bold">Postal code</span><input value={form.postalCode} onChange={(event) => update("postalCode", event.target.value)} className="w-full rounded-2xl border border-slate-300 px-4 py-3" /></label>
-                <label><span className="mb-2 block text-sm font-bold">Country</span><input required value={form.country} onChange={(event) => update("country", event.target.value)} className="w-full rounded-2xl border border-slate-300 px-4 py-3" /></label>
+                <label><span className="mb-2 block text-sm font-bold">Country</span><input required={!form.legacyAddress} value={form.country} onChange={(event) => update("country", event.target.value)} className="w-full rounded-2xl border border-slate-300 px-4 py-3" /></label>
                 <div className="sm:col-span-2">
                   <MapPicker
                     address={
@@ -442,19 +481,29 @@ function ListingEditorModal({ listing, onClose, onSaved }) {
   );
 }
 
-function ListingsTab({ listings, bookings, loading, onChanged, requestedEditId, onEditOpened }) {
+function ListingsTab({ listings, loading, onChanged, requestedEditId, onEditOpened }) {
   const navigate = useNavigate();
   const [view, setView] = useState("listed");
   const [editing, setEditing] = useState(null);
+  const [editorLoadingTitle, setEditorLoadingTitle] = useState("");
   const [error, setError] = useState("");
   const listedCount = listings.filter((listing) => listing.isListed).length;
   const unlistedCount = listings.length - listedCount;
-  const acceptedPropertyIds = new Set(
-    bookings
-      .filter((booking) => normalizeBookingStatus(booking.status) === "accepted")
-      .map((booking) => booking.propertyId),
-  );
   const visible = listings.filter((listing) => view === "listed" ? listing.isListed : !listing.isListed);
+
+  const openEditor = useCallback(async (listing) => {
+    setError("");
+    setEditorLoadingTitle(listing?.title || "Preparing the editor.");
+
+    try {
+      const freshListing = await getProperty(listing.id);
+      setEditing(freshListing);
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Could not load this listing for editing.");
+    } finally {
+      setEditorLoadingTitle("");
+    }
+  }, []);
 
   useEffect(() => {
     if (!requestedEditId || loading) return;
@@ -462,11 +511,11 @@ function ListingsTab({ listings, bookings, loading, onChanged, requestedEditId, 
     if (requestedListing) {
       Promise.resolve().then(() => {
         setView(requestedListing.isListed ? "listed" : "unlisted");
-        setEditing(requestedListing);
+        openEditor(requestedListing);
         onEditOpened();
       });
     }
-  }, [listings, loading, onEditOpened, requestedEditId]);
+  }, [listings, loading, onEditOpened, openEditor, requestedEditId]);
 
   const changePublishState = async (listing) => {
     try {
@@ -489,9 +538,6 @@ function ListingsTab({ listings, bookings, loading, onChanged, requestedEditId, 
     }
     if (listing.availableTo && toDateValue(listing.availableTo) <= localToday()) {
       return { label: "Hidden · availability ended", classes: "bg-amber-50 text-amber-700" };
-    }
-    if (acceptedPropertyIds.has(listing.id)) {
-      return { label: "Hidden · accepted booking", classes: "bg-sky-50 text-sky-700" };
     }
     return { label: "Visible to guests", classes: "bg-emerald-50 text-emerald-700" };
   };
@@ -532,7 +578,7 @@ function ListingsTab({ listings, bookings, loading, onChanged, requestedEditId, 
                 <div className="p-5"><h2 className="truncate font-bold">{listing.title}</h2><p className="mt-1 text-sm text-slate-500">RM {listing.pricePerNight} per night</p><p className="mt-2 text-xs font-semibold text-slate-500">Available until {listing.availableTo ? formatBookingDate(listing.availableTo) : "not set"}</p></div>
               </button>
               <div className="flex flex-wrap gap-2 border-t border-slate-100 p-4">
-                <button type="button" onClick={() => setEditing(listing)} className="rounded-full border border-slate-300 px-4 py-2 text-xs font-bold">Edit</button>
+                <button type="button" onClick={() => openEditor(listing)} className="rounded-full border border-slate-300 px-4 py-2 text-xs font-bold">Edit</button>
                 <button type="button" onClick={() => changePublishState(listing)} className="rounded-full bg-slate-950 px-4 py-2 text-xs font-bold text-white">{listing.isListed ? "Unpublish" : "Publish"}</button>
                 <button type="button" onClick={() => remove(listing)} className="rounded-full bg-rose-50 px-4 py-2 text-xs font-bold text-rose-700">Delete</button>
               </div>
@@ -540,17 +586,20 @@ function ListingsTab({ listings, bookings, loading, onChanged, requestedEditId, 
           )})}
         </div>
       )}
+      {editorLoadingTitle && <EditorLoadingModal title={editorLoadingTitle} />}
       {editing && <ListingEditorModal listing={editing} onClose={() => setEditing(null)} onSaved={(updated) => { onChanged(updated); setEditing(null); }} />}
     </section>
   );
 }
 
 function CalendarTab({ bookings }) {
+  const navigate = useNavigate();
   const [month, setMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
   const today = localToday();
+  const [selectedDay, setSelectedDay] = useState(today);
   const days = useMemo(() => {
     const start = new Date(month);
     start.setDate(1 - start.getDay());
@@ -564,6 +613,9 @@ function CalendarTab({ bookings }) {
   }, [month]);
 
   const activeBookings = bookings.filter((booking) => ["accepted", "pending"].includes(normalizeBookingStatus(booking.status)));
+  const selectedDayBookings = activeBookings.filter(
+    (booking) => selectedDay >= toDateValue(booking.checkIn) && selectedDay < toDateValue(booking.checkOut),
+  );
 
   return (
     <section>
@@ -579,7 +631,16 @@ function CalendarTab({ bookings }) {
           {days.map(({ date, value }) => {
             const occupied = activeBookings.filter((booking) => value >= toDateValue(booking.checkIn) && value < toDateValue(booking.checkOut));
             return (
-              <div key={value} className={`min-h-28 border-b border-r border-slate-100 p-2 ${date.getMonth() !== month.getMonth() ? "bg-slate-50/60 text-slate-300" : ""}`}>
+              <div
+                key={value}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedDay(value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") setSelectedDay(value);
+                }}
+                className={`min-h-28 cursor-pointer border-b border-r border-slate-100 p-2 text-left transition hover:bg-slate-50 ${selectedDay === value ? "bg-rose-50/70 ring-2 ring-inset ring-rose-200" : ""} ${date.getMonth() !== month.getMonth() ? "bg-slate-50/60 text-slate-300" : ""}`}
+              >
                 <span className={`grid h-7 w-7 place-items-center rounded-full text-xs font-bold ${value === today ? "bg-rose-500 text-white" : ""}`}>{date.getDate()}</span>
                 <div className="mt-1 space-y-1">
                   {occupied.slice(0, 2).map((booking) => <div key={booking.id} title={`${booking.guest?.username} · ${booking.property?.title}`} className={`truncate rounded-md px-1.5 py-1 text-[10px] font-bold ${normalizeBookingStatus(booking.status) === "accepted" ? "bg-emerald-100 text-emerald-800" : "bg-amber-100 text-amber-800"}`}>{booking.property?.title} · {booking.guest?.username}</div>)}
@@ -589,6 +650,31 @@ function CalendarTab({ bookings }) {
             );
           })}
         </div>
+      </div>
+      <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-5">
+        <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-slate-950">
+              {new Date(`${selectedDay}T00:00:00`).toLocaleDateString("en-MY", {
+                day: "2-digit",
+                month: "long",
+                year: "numeric",
+              })}
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              {selectedDayBookings.length
+                ? `${selectedDayBookings.length} booking${selectedDayBookings.length === 1 ? "" : "s"} on this day.`
+                : "No bookings on this day."}
+            </p>
+          </div>
+        </div>
+        {selectedDayBookings.length > 0 && (
+          <div className="mt-5 grid gap-3">
+            {selectedDayBookings.map((booking) => (
+              <BookingCard key={booking.id} booking={booking} onOpen={() => navigate(`/hosting/requests/${booking.id}`)} />
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );
@@ -681,7 +767,6 @@ function HostingDashboard() {
         {activeTab === "listings" && (
           <ListingsTab
             listings={listings}
-            bookings={bookings}
             loading={loading}
             onChanged={updateLocalListing}
             requestedEditId={Number(searchParams.get("edit")) || null}

@@ -52,12 +52,7 @@ public class PropertiesController : ControllerBase
                 property.IsListed &&
                 property.IsAvailable &&
                 (property.AvailableTo == null ||
-                 property.AvailableTo > today) &&
-                !_context.Bookings.Any(booking =>
-                    booking.PropertyId == property.Id &&
-                    booking.Status == "Accepted" &&
-                    booking.CheckIn <= today &&
-                    booking.CheckOut > today))
+                 property.AvailableTo > today))
             .OrderByDescending(property => property.CreatedAt)
             .ToListAsync();
 
@@ -116,7 +111,8 @@ public class PropertiesController : ControllerBase
         var blockedRanges = await _context.Bookings
             .Where(booking =>
                 booking.PropertyId == id &&
-                booking.Status.ToLower() == "accepted")
+                booking.Status == "Accepted" &&
+                booking.CheckOut > DateTime.UtcNow.Date)
             .OrderBy(booking => booking.CheckIn)
             .Select(booking => new
             {
@@ -680,9 +676,40 @@ public class PropertiesController : ControllerBase
                 HostId = user.Id,
                 Username = user.Username,
                 CreatedAt = user.CreatedAt,
-                IsHost = user.IsHost
+                HostSince = user.HostSince,
+                IsHost = user.IsHost,
+                ProfilePictureUrl = user.ProfilePictureUrl,
+                AboutMe = user.AboutMe,
+                Work = user.Work,
+                LivesIn = user.LivesIn,
+                Languages = user.Languages,
+                Interests = user.Interests
             })
             .FirstOrDefaultAsync();
+
+        if (host != null)
+        {
+            host.ListingsCount = await _context.Properties
+                .AsNoTracking()
+                .CountAsync(item => item.HostId == host.HostId && item.IsListed);
+
+            var ratingSummary = await _context.Reviews
+                .AsNoTracking()
+                .Where(review =>
+                    review.HostRating != null &&
+                    review.Property != null &&
+                    review.Property.HostId == host.HostId)
+                .GroupBy(review => review.Property!.HostId)
+                .Select(group => new
+                {
+                    ReviewCount = group.Count(),
+                    AverageRating = group.Average(review => (double)review.HostRating!.Value)
+                })
+                .FirstOrDefaultAsync();
+
+            host.ReviewCount = ratingSummary?.ReviewCount ?? 0;
+            host.AverageRating = ratingSummary?.AverageRating;
+        }
 
         return MapProperty(property, imageUrls, host, currentUserId);
     }
@@ -719,9 +746,52 @@ public class PropertiesController : ControllerBase
                 HostId = user.Id,
                 Username = user.Username,
                 CreatedAt = user.CreatedAt,
-                IsHost = user.IsHost
+                HostSince = user.HostSince,
+                IsHost = user.IsHost,
+                ProfilePictureUrl = user.ProfilePictureUrl,
+                AboutMe = user.AboutMe,
+                Work = user.Work,
+                LivesIn = user.LivesIn,
+                Languages = user.Languages,
+                Interests = user.Interests
             })
             .ToDictionaryAsync(host => host.HostId);
+
+        var listingCounts = await _context.Properties
+            .AsNoTracking()
+            .Where(item => hostIds.Contains(item.HostId) && item.IsListed)
+            .GroupBy(item => item.HostId)
+            .Select(group => new
+            {
+                HostId = group.Key,
+                Count = group.Count()
+            })
+            .ToDictionaryAsync(item => item.HostId, item => item.Count);
+
+        var ratingSummaries = await _context.Reviews
+            .AsNoTracking()
+            .Where(review =>
+                review.HostRating != null &&
+                review.Property != null &&
+                hostIds.Contains(review.Property.HostId))
+            .GroupBy(review => review.Property!.HostId)
+            .Select(group => new
+            {
+                HostId = group.Key,
+                ReviewCount = group.Count(),
+                AverageRating = group.Average(review => (double)review.HostRating!.Value)
+            })
+            .ToDictionaryAsync(item => item.HostId);
+
+        foreach (var host in hosts.Values)
+        {
+            host.ListingsCount = listingCounts.GetValueOrDefault(host.HostId);
+            if (ratingSummaries.TryGetValue(host.HostId, out var ratingSummary))
+            {
+                host.ReviewCount = ratingSummary.ReviewCount;
+                host.AverageRating = ratingSummary.AverageRating;
+            }
+        }
 
         return properties
             .Select(property =>
