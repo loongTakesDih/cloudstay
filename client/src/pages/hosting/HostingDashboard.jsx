@@ -8,6 +8,7 @@ import {
   publishListing,
   unpublishListing,
   updateListing,
+  uploadPropertyImage,
 } from "../../api/api.js";
 import AppHeader from "../../components/AppHeader";
 import { MapPicker } from "../../components/PropertyMap";
@@ -234,6 +235,7 @@ function ListingEditorModal({ listing, onClose, onSaved }) {
   const [form, setForm] = useState(() => buildEditForm(listing));
   const [section, setSection] = useState("basics");
   const [saving, setSaving] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
   const [error, setError] = useState("");
 
   const update = (field, value) => setForm((current) => ({ ...current, [field]: value }));
@@ -246,8 +248,53 @@ function ListingEditorModal({ listing, onClose, onSaved }) {
     }));
   };
 
+  const handlePhotoUpload = async (event) => {
+    const files = Array.from(event.target.files || []);
+
+    if (files.length === 0) return;
+
+    setError("");
+
+    if (files.some((file) => !file.type.startsWith("image/"))) {
+      setError("Choose image files to upload.");
+      return;
+    }
+
+    setPhotoUploading(true);
+
+    try {
+      const uploadedImages = await Promise.all(
+        files.map((file) => uploadPropertyImage(file))
+      );
+      const uploadedUrls = uploadedImages.map((upload) => upload.imageUrl);
+
+      setForm((current) => ({
+        ...current,
+        imageUrls: [...current.imageUrls, ...uploadedUrls].slice(0, 10),
+      }));
+    } catch (requestError) {
+      setError(requestError.response?.data?.message || "Could not upload these photos.");
+    } finally {
+      setPhotoUploading(false);
+      event.target.value = "";
+    }
+  };
+
+  const removePhoto = (imageUrl) => {
+    setForm((current) => ({
+      ...current,
+      imageUrls: current.imageUrls.filter((url) => url !== imageUrl),
+    }));
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
+
+    if (photoUploading) {
+      setError("Wait for the photo upload to finish before saving.");
+      return;
+    }
+
     setSaving(true);
     setError("");
     const thingsToKnowComplete =
@@ -345,21 +392,39 @@ function ListingEditorModal({ listing, onClose, onSaved }) {
                       <p className="text-sm font-bold">Photos</p>
                       <p className="mt-1 text-xs font-semibold text-slate-500">
                         {form.imageUrls.length
-                          ? `${form.imageUrls.length} existing photo${form.imageUrls.length === 1 ? "" : "s"} will be kept.`
+                          ? `${form.imageUrls.length} photo${form.imageUrls.length === 1 ? "" : "s"} attached.`
                           : "No photos are attached to this listing yet."}
                       </p>
                     </div>
-                    <button type="button" onClick={() => setError("Photo upload is not available yet.")} className="rounded-full border border-slate-300 px-5 py-2.5 text-sm font-bold">Add photos</button>
+                    <label className="cursor-pointer rounded-full border border-slate-300 px-5 py-2.5 text-sm font-bold">
+                      {photoUploading ? "Uploading..." : "Add photos"}
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        multiple
+                        onChange={handlePhotoUpload}
+                        disabled={photoUploading || form.imageUrls.length >= 10}
+                        className="sr-only"
+                      />
+                    </label>
                   </div>
                   {form.imageUrls.length > 0 && (
                     <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-                      {form.imageUrls.slice(0, 6).map((imageUrl, index) => (
-                        <img
-                          key={`${imageUrl}-${index}`}
-                          src={imageUrl}
-                          alt=""
-                          className="h-20 w-28 shrink-0 rounded-2xl object-cover"
-                        />
+                      {form.imageUrls.map((imageUrl, index) => (
+                        <div key={`${imageUrl}-${index}`} className="relative h-20 w-28 shrink-0 overflow-hidden rounded-2xl">
+                          <img
+                            src={imageUrl}
+                            alt=""
+                            className="h-full w-full object-cover"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removePhoto(imageUrl)}
+                            className="absolute right-1 top-1 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-bold text-slate-700 shadow-sm hover:bg-red-50 hover:text-red-700"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -473,7 +538,7 @@ function ListingEditorModal({ listing, onClose, onSaved }) {
           </div>
           <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
             <button type="button" onClick={onClose} className="rounded-full border border-slate-300 px-5 py-2.5 text-sm font-bold">Cancel</button>
-            <button type="submit" disabled={saving} className="rounded-full bg-rose-500 px-6 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Saving..." : "Save changes"}</button>
+            <button type="submit" disabled={saving || photoUploading} className="rounded-full bg-rose-500 px-6 py-2.5 text-sm font-bold text-white disabled:opacity-50">{saving ? "Saving..." : photoUploading ? "Uploading..." : "Save changes"}</button>
           </div>
         </form>
       </div>
