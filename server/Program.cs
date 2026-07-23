@@ -7,8 +7,13 @@ using server.Hubs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using Amazon.XRay.Recorder.Handlers.AspNetCore;
+using Amazon.XRay.Recorder.Handlers.AwsSdk;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Register X-Ray tracing for outgoing AWS SDK calls (S3, etc.) before any AWS clients are created
+AWSSDKHandler.RegisterXRayForAllServices();
 
 builder.Services.Configure<StripeSettings>(
     builder.Configuration.GetSection("Stripe")
@@ -92,6 +97,9 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+// Wrap every incoming request in an X-Ray trace segment - keep this early in the pipeline
+app.UseXRay("CloudStayApi");
 
 using (var scope = app.Services.CreateScope())
 {
