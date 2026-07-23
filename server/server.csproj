@@ -25,4 +25,11 @@
     <PackageReference Include="Stripe.net" Version="52.1.0" />
   </ItemGroup>
 
+    <Target Name="CopyEbExtensions" AfterTargets="Publish">
+    <ItemGroup>
+      <EbFiles Include="$(MSBuildProjectDirectory)/.ebextensions/**/*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(EbFiles)" DestinationFolder="$(PublishDir)/.ebextensions/%(RecursiveDir)" />
+  </Target>
+
 </Project>
