@@ -595,7 +595,7 @@ function MeetHostSection({
               </div>
               <div className="py-3 last:pb-0">
                 <p className="text-xl font-extrabold text-slate-950">{hostDuration}</p>
-                <p className="text-xs font-semibold text-slate-500">Years hosting</p>
+                <p className="text-xs font-semibold text-slate-500">as host on CloudStay</p>
               </div>
             </div>
           </button>

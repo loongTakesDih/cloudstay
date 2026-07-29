@@ -105,16 +105,11 @@ const getTimeOnCloudStay = (createdAt) => {
   const joined = new Date(createdAt);
   if (Number.isNaN(joined.getTime())) return "Recently joined";
 
-  const months = Math.max(
-    0,
-    (new Date().getFullYear() - joined.getFullYear()) * 12 +
-      new Date().getMonth() -
-      joined.getMonth(),
-  );
-  if (months < 1) return "Less than a month";
-  if (months < 12) return `${months} month${months === 1 ? "" : "s"}`;
-  const years = Math.floor(months / 12);
-  return `${years} year${years === 1 ? "" : "s"}`;
+  const diffMs = Date.now() - joined.getTime();
+  if (diffMs < 24 * 60 * 60 * 1000) return "Less than a day";
+
+  const days = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+  return `${days} day${days === 1 ? "" : "s"}`;
 };
 
 const getHostDuration = (hostSince) => {

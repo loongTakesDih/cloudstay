@@ -1,0 +1,685 @@
+<title>CloudStay — Feature & Backend Flow Reference</title>
+<style>
+  :root {
+    --bg: #fbf6f3;
+    --surface: #ffffff;
+    --surface-2: #f6efeb;
+    --border: #ece2dc;
+    --border-strong: #ddcfc7;
+    --ink: #1c1518;
+    --ink-2: #6a5c56;
+    --ink-3: #9c8d86;
+    --accent: #e11d48;
+    --accent-ink: #e11d48;
+    --accent-soft: #fff1f3;
+    --shadow: 0 1px 2px rgba(28, 21, 24, .04), 0 8px 24px rgba(28, 21, 24, .05);
+
+    --get: #0e7490;
+    --post: #047857;
+    --put: #b45309;
+    --patch: #6d28d9;
+    --delete: #be123c;
+    --evt: #7c6f2b;
+
+    --maxw: 1180px;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16100e; --surface: #1e1714; --surface-2: #261d19; --border: #352a25;
+      --border-strong: #453730; --ink: #f3ebe7; --ink-2: #b6a79f; --ink-3: #877771;
+      --accent: #fb7185; --accent-ink: #fb7185; --accent-soft: #2b1518;
+      --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 10px 30px rgba(0, 0, 0, .35);
+      --get: #38bdf8; --post: #34d399; --put: #fbbf24; --patch: #c4b5fd; --delete: #fb7185; --evt: #d9c766;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #fbf6f3; --surface: #ffffff; --surface-2: #f6efeb; --border: #ece2dc;
+    --border-strong: #ddcfc7; --ink: #1c1518; --ink-2: #6a5c56; --ink-3: #9c8d86;
+    --accent: #e11d48; --accent-ink: #e11d48; --accent-soft: #fff1f3;
+    --shadow: 0 1px 2px rgba(28,21,24,.04), 0 8px 24px rgba(28,21,24,.05);
+    --get: #0e7490; --post: #047857; --put: #b45309; --patch: #6d28d9; --delete: #be123c; --evt: #7c6f2b;
+  }
+  :root[data-theme="dark"] {
+    --bg: #16100e; --surface: #1e1714; --surface-2: #261d19; --border: #352a25;
+    --border-strong: #453730; --ink: #f3ebe7; --ink-2: #b6a79f; --ink-3: #877771;
+    --accent: #fb7185; --accent-ink: #fb7185; --accent-soft: #2b1518;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+    --get: #38bdf8; --post: #34d399; --put: #fbbf24; --patch: #c4b5fd; --delete: #fb7185; --evt: #d9c766;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font);
+    line-height: 1.6; -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 clamp(1rem, 3vw, 2.25rem); }
+
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(12px); border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner { display: flex; align-items: center; gap: 1rem; min-height: 60px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: .6rem; font-weight: 800; letter-spacing: -.02em; margin-right: auto; }
+  .brand .mark { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px; background: var(--accent); color: #fff; }
+  .brand .mark svg { width: 17px; height: 17px; }
+  .domnav { display: flex; gap: .15rem; flex-wrap: wrap; }
+  .domnav a {
+    font-size: 12.5px; font-weight: 600; color: var(--ink-2); text-decoration: none;
+    padding: .34rem .6rem; border-radius: 999px; white-space: nowrap; transition: background .15s, color .15s;
+  }
+  .domnav a:hover { background: var(--surface-2); color: var(--ink); }
+  .domnav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  header.hero { padding: clamp(2.4rem, 6vw, 4rem) 0 1.6rem; border-bottom: 1px solid var(--border); }
+  .eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--accent-ink); margin: 0 0 .9rem; }
+  h1 { font-size: clamp(1.9rem, 1.2rem + 3vw, 3.1rem); line-height: 1.05; letter-spacing: -.03em; margin: 0; text-wrap: balance; font-weight: 820; }
+  .lede { font-size: clamp(1rem, .96rem + .3vw, 1.18rem); color: var(--ink-2); max-width: 64ch; margin: 1rem 0 0; }
+  .stats { display: flex; flex-wrap: wrap; gap: .7rem; margin-top: 1.8rem; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: .7rem 1rem; min-width: 118px; box-shadow: var(--shadow); }
+  .stat b { display: block; font-size: 1.5rem; font-weight: 800; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-3); }
+  .legend { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .55rem; margin-top: 1.6rem; font-size: 12px; color: var(--ink-3); }
+  .legend .lbl { font-weight: 600; }
+  .legend code { font-family: var(--mono); }
+
+  .m {
+    font-family: var(--mono); font-size: 10.5px; font-weight: 700; letter-spacing: .04em;
+    padding: .17rem .42rem; border-radius: 6px; text-transform: uppercase; white-space: nowrap;
+    color: var(--c); background: color-mix(in srgb, var(--c) 13%, var(--surface));
+    border: 1px solid color-mix(in srgb, var(--c) 34%, transparent);
+  }
+  .m.get { --c: var(--get); } .m.post { --c: var(--post); } .m.put { --c: var(--put); }
+  .m.patch { --c: var(--patch); } .m.delete { --c: var(--delete); } .m.evt { --c: var(--evt); }
+
+  section.domain { padding: clamp(2rem, 5vw, 3.2rem) 0 .6rem; scroll-margin-top: 72px; }
+  .domain-head { display: flex; align-items: baseline; gap: .8rem; margin-bottom: .3rem; flex-wrap: wrap; }
+  .domain-head .num { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--accent-ink); padding-top: .25rem; }
+  .domain-head h2 { font-size: clamp(1.35rem, 1.1rem + 1vw, 1.85rem); letter-spacing: -.02em; margin: 0; font-weight: 780; }
+  .domain-sub { color: var(--ink-2); margin: .1rem 0 1.5rem; max-width: 72ch; font-size: .96rem; }
+  .domain-sub code, .domain-sub em { font-family: var(--mono); font-style: normal; font-size: .85em; background: var(--surface-2); padding: .05rem .3rem; border-radius: 5px; }
+
+  .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fill, minmax(370px, 1fr)); }
+
+  article.feat { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 1.1rem 1.2rem 1.2rem; box-shadow: var(--shadow); display: flex; flex-direction: column; }
+  .feat h3 { font-size: 1.04rem; margin: 0 0 .55rem; letter-spacing: -.01em; font-weight: 720; text-wrap: balance; }
+  .eps { display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; margin-bottom: .95rem; }
+  .ep { display: inline-flex; align-items: center; gap: .4rem; max-width: 100%; }
+  .ep code { font-family: var(--mono); font-size: 12px; color: var(--ink); background: var(--surface-2); padding: .16rem .44rem; border-radius: 6px; border: 1px solid var(--border); overflow-x: auto; white-space: nowrap; max-width: 100%; }
+  .ep .plain { font-size: 11px; font-weight: 600; color: var(--ink-3); text-transform: uppercase; letter-spacing: .05em; }
+
+  ol.flow { margin: 0; padding: 0; list-style: none; counter-reset: s; display: flex; flex-direction: column; gap: .7rem; }
+  ol.flow li {
+    position: relative; padding-left: 1.95rem; counter-increment: s;
+    display: flex; flex-direction: column; gap: .3rem;
+  }
+  ol.flow li::before {
+    content: counter(s); position: absolute; left: 0; top: .02rem;
+    width: 1.3rem; height: 1.3rem; border-radius: 7px; display: grid; place-items: center;
+    font-family: var(--mono); font-size: 11px; font-weight: 700;
+    color: var(--accent-ink); background: var(--accent-soft);
+    border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+  .flow .txt { font-size: 13.5px; color: var(--ink-2); line-height: 1.55; }
+  .flow .txt b { color: var(--ink); font-weight: 650; }
+  .flow .txt em { font-style: normal; font-family: var(--mono); font-size: .9em; background: var(--surface-2); padding: .02rem .28rem; border-radius: 4px; color: var(--ink); }
+  .flow .loc {
+    font-family: var(--mono); font-size: 10.5px; color: var(--accent-ink);
+    background: var(--surface-2); border: 1px solid var(--border);
+    padding: .12rem .42rem; border-radius: 5px; align-self: flex-start;
+    max-width: 100%; overflow-x: auto; white-space: nowrap;
+  }
+
+  .callout { background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent); border-radius: 12px; padding: .85rem 1.05rem; margin: 1.4rem 0 0; font-size: 13.5px; color: var(--ink-2); }
+  .callout b { color: var(--ink); }
+
+  footer { border-top: 1px solid var(--border); margin-top: 3rem; padding: 1.8rem 0 3rem; color: var(--ink-3); font-size: 12.5px; }
+  footer .stack { font-family: var(--mono); color: var(--ink-2); margin-top: .4rem; }
+
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+  html { scroll-behavior: smooth; }
+</style>
+
+<div class="topbar">
+  <div class="wrap topbar-inner">
+    <span class="brand">
+      <span class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 11.5 12 5l8 6.5V20h-5v-5H9v5H4v-8.5Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg></span>
+      CloudStay
+    </span>
+    <nav class="domnav" aria-label="Feature domains">
+      <a href="#auth">Auth</a><a href="#profile">Profile</a><a href="#onboarding">Onboarding</a>
+      <a href="#listings">Listings</a><a href="#uploads">Uploads</a><a href="#bookings">Bookings</a>
+      <a href="#payments">Payments</a><a href="#reviews">Reviews</a><a href="#chat">Chat</a>
+      <a href="#realtime">Realtime</a><a href="#client">Client-side</a>
+    </nav>
+  </div>
+</div>
+
+<div class="wrap">
+  <header class="hero">
+    <p class="eyebrow">System Reference · End-to-end Flows</p>
+    <h1>CloudStay feature &amp; backend flow reference</h1>
+    <p class="lede">
+      Every meaningful feature, walked through as a complete story — from the button a user presses, through the
+      frontend handler and API call, into the controller and service, and back again. Each step names the file
+      and line range where it actually happens.
+    </p>
+    <div class="stats">
+      <div class="stat"><b>11</b><span>Feature domains</span></div>
+      <div class="stat"><b>8</b><span>Controllers</span></div>
+      <div class="stat"><b>36</b><span>API endpoints</span></div>
+      <div class="stat"><b>7</b><span>Data models</span></div>
+    </div>
+    <div class="legend">
+      <span class="lbl">Methods:</span>
+      <span class="m get">GET</span><span class="m post">POST</span><span class="m put">PUT</span>
+      <span class="m patch">PATCH</span><span class="m delete">DELETE</span><span class="m evt">EVENT</span>
+      <span>&nbsp;· steps run top to bottom · each cites <code>path:line-range</code> · routes prefixed <code>/api</code></span>
+    </div>
+  </header>
+
+  <!-- ===================== AUTH ===================== -->
+  <section class="domain" id="auth">
+    <div class="domain-head"><span class="num">01</span><h2>Authentication &amp; Accounts</h2></div>
+    <p class="domain-sub">Password and Google identity, JWT issuance, and session verification. Passwords are BCrypt-hashed; tokens carry the user id, role, and host flag and expire after one hour.</p>
+    <div class="grid">
+
+      <article class="feat">
+        <h3>Register (email &amp; password)</h3>
+        <div class="eps"><span class="ep"><span class="m post">POST</span><code>/auth/register</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">The user types a username, email, and password and presses <b>Create account</b>. That press doesn't fire a click handler — it submits the surrounding form, and submitting the form is what actually runs <em>handleSubmit</em>.</span><span class="loc">client/src/pages/auth/Register.jsx:35-48, 93-143</span></li>
+          <li><span class="txt">Rather than talk to the server itself, the page leans on the shared auth context: <em>handleSubmit</em> flips on a loading flag and calls <em>register()</em>, which is the piece that actually POSTs the credentials.</span><span class="loc">client/src/context/AuthContext.jsx:113-122</span></li>
+          <li><span class="txt">On the server the request first meets the controller, which stays deliberately thin — it binds the JSON into a DTO and hands the whole thing off to the auth service.</span><span class="loc">server/Controllers/AuthController.cs:24-38</span></li>
+          <li><span class="txt">This is where the real work lives: the service makes sure nobody already owns that email, runs the password through <b>BCrypt</b> so the plain text is never stored, builds the new <em>User</em>, and saves it.</span><span class="loc">server/Services/AuthService.cs:25-49</span></li>
+          <li><span class="txt">With a user now in the database, a <b>JWT</b> is minted and stamped with their id, role, and host flag, then signed and set to expire an hour later.</span><span class="loc">server/Services/TokenService.cs:18-50</span></li>
+          <li><span class="txt">Back in the browser, <em>saveAuth</em> tucks the token and user into localStorage, wires the token onto future requests, and the app quietly redirects home — now signed in.</span><span class="loc">client/src/context/AuthContext.jsx:90-101</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Log in (email &amp; password)</h3>
+        <div class="eps"><span class="ep"><span class="m post">POST</span><code>/auth/login</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">The user fills in their email and password and clicks <b>Log in</b>, which submits the form and hands control to <em>handleSubmit</em>.</span><span class="loc">client/src/pages/auth/Login.jsx:45-58, 106-142</span></li>
+          <li><span class="txt">The handler passes those two values to the context's <em>login()</em>, which POSTs them up to the login endpoint.</span><span class="loc">client/src/context/AuthContext.jsx:103-111</span></li>
+          <li><span class="txt">The controller is a thin pass-through again — it simply forwards the request into the auth service and waits.</span><span class="loc">server/Controllers/AuthController.cs:40-54</span></li>
+          <li><span class="txt">The service looks the user up by email, then <b>BCrypt-verifies</b> the password against the stored hash; if the user is missing or the password is wrong, it just returns nothing.</span><span class="loc">server/Services/AuthService.cs:51-77</span></li>
+          <li><span class="txt">Notice how every kind of failure collapses into the same <b>generic 401</b> — the message never says whether it was the email or the password that was off, so nobody can fish for which accounts exist. A success mints the JWT.</span><span class="loc">server/Controllers/AuthController.cs:45-51</span></li>
+          <li><span class="txt"><em>saveAuth</em> stores the session, and <em>navigateAfterAuth</em> adds a nice touch — if the user was bounced here from a protected page, it sends them back to that <em>?returnTo</em> path instead of the homepage.</span><span class="loc">client/src/pages/auth/Login.jsx:18-26</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Sign in / sign up with Google</h3>
+        <div class="eps"><span class="ep"><span class="m post">POST</span><code>/auth/google</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">Before anything can happen the button has to bootstrap itself — it injects Google's script, initializes with your client id, and renders Google's own official button into the page.</span><span class="loc">client/src/components/GoogleSignInButton.jsx:44-107</span></li>
+          <li><span class="txt">Once the user picks their Google account, Google hands back a signed credential; that fires <em>handleGoogleCredential</em>, which passes it along to <em>loginWithGoogle</em>.</span><span class="loc">client/src/pages/auth/Login.jsx:28-43</span></li>
+          <li><span class="txt">The context POSTs that credential — not a password — up to the Google endpoint.</span><span class="loc">client/src/context/AuthContext.jsx:124-130</span></li>
+          <li><span class="txt">The server can't just take Google's word for it, so it <b>validates the token</b> against your client id and insists the email is verified before trusting anything inside it.</span><span class="loc">server/Services/AuthService.cs:79-114</span></li>
+          <li><span class="txt">Then comes the <b>find-or-create</b>: if the person already exists (by Google id or email) it links Google onto that account, otherwise it creates a fresh one — either way it ends holding a JWT. That's why signup and login are the same endpoint.</span><span class="loc">server/Services/AuthService.cs:116-158</span></li>
+          <li><span class="txt">From here it rejoins the normal path — <em>saveAuth</em> stores the session and the app navigates home.</span><span class="loc">client/src/context/AuthContext.jsx:90-101</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Session restore (page reload)</h3>
+        <div class="eps"><span class="ep"><span class="m get">GET</span><code>/auth/me</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">When the app first loads it doesn't assume you're anyone — <em>loadCurrentUser</em> peeks into localStorage for a saved token, and if there isn't one it simply settles into a logged-out state.</span><span class="loc">client/src/context/AuthContext.jsx:149-156</span></li>
+          <li><span class="txt">If a token is there, it re-attaches it to the axios headers and asks the server "who am I?" by calling <em>/auth/me</em>.</span><span class="loc">client/src/context/AuthContext.jsx:158-163</span></li>
+          <li><span class="txt">That request has to clear the JWT middleware, which re-checks the signature, issuer, audience, and that the token hasn't expired.</span><span class="loc">server/Program.cs:52-65</span></li>
+          <li><span class="txt">If the token holds up, the controller reads the user id out of it and the service loads a <b>fresh</b> copy from the database — so any profile or host changes made since login show up right away.</span><span class="loc">server/Controllers/AuthController.cs:83-108</span></li>
+          <li><span class="txt">A valid response sets the user; a 401 or 403 means the token is dead, so the session gets wiped clean.</span><span class="loc">client/src/context/AuthContext.jsx:164-178</span></li>
+          <li><span class="txt">All the while the route guards hold the UI on a "Loading…" state until this resolves, then either let the page through or redirect to login.</span><span class="loc">client/src/components/ProtectedRoute.jsx:4-16</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Become a host (entry)</h3>
+        <div class="eps"><span class="ep"><span class="m post">POST</span><code>/auth/become-host</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">Clicking <b>Become a host</b> in the header runs <em>handleHosting</em>, which decides where to send you — for someone who isn't a host yet, that's the <em>/become-host</em> route.</span><span class="loc">client/src/components/MarketplaceHeader.jsx:75-87</span></li>
+          <li><span class="txt">That route does one thing: render the onboarding wizard.</span><span class="loc">client/src/App.jsx:85-92 &middot; pages/host/HostOnboarding.jsx:1-6</span></li>
+          <li><span class="txt">The actual promotion to host happens at the <em>end</em> of that wizard, not here — see <b>Onboarding</b>. (There's a standalone endpoint for it too, but the app doesn't currently take that route.)</span><span class="loc">server/Controllers/AuthController.cs:360-385</span></li>
+        </ol>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ===================== PROFILE ===================== -->
+  <section class="domain" id="profile">
+    <div class="domain-head"><span class="num">02</span><h2>User Profile &amp; Host Profiles</h2></div>
+    <p class="domain-sub">Editable profile fields (bio, work, interests, Airbnb-style prompts) plus public and private host-profile aggregates.</p>
+    <div class="grid">
+
+      <article class="feat">
+        <h3>Edit my profile</h3>
+        <div class="eps"><span class="ep"><span class="m put">PUT</span><code>/auth/me/profile</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">Each detail on the profile is its own little editable row; tapping one pops open a focused modal for just that field (or the interests picker).</span><span class="loc">client/src/pages/user/ProfilePage.jsx:554-626</span></li>
+          <li><span class="txt">Editing inside the modal doesn't save anything yet — it only updates a draft copy of the form held in state, so nothing is committed until you're ready.</span><span class="loc">client/src/pages/user/ProfilePage.jsx:686-693</span></li>
+          <li><span class="txt">When you do commit, <em>handleSubmit</em> takes that whole draft and calls <em>updateMyProfile</em>.</span><span class="loc">client/src/pages/user/ProfilePage.jsx:694-712</span></li>
+          <li><span class="txt">The PUT reaches the controller, which passes the payload straight through to the service.</span><span class="loc">server/Controllers/AuthController.cs:111-136</span></li>
+          <li><span class="txt">The service tidies everything up — blank fields become null rather than empty strings, and the interests list is flattened into a single stored value — then saves and hands back the refreshed profile.</span><span class="loc">server/Services/AuthService.cs:192-222</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>My host profile (private)</h3>
+        <div class="eps"><span class="ep"><span class="m get">GET</span><code>/auth/me/host-profile</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">When you look at your own host profile, the app asks for the private version through <em>getMyHostProfile</em>.</span><span class="loc">client/src/api/api.js:58-61</span></li>
+          <li><span class="txt">The controller runs the shared profile builder but tells it to <b>include your unlisted drafts</b>, since this is your own behind-the-scenes view.</span><span class="loc">server/Controllers/AuthController.cs:138-163</span></li>
+          <li><span class="txt">That builder is where the numbers come from — it counts your listings, tallies reviews, and averages your rating.</span><span class="loc">server/Controllers/AuthController.cs:181+</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Public host profile</h3>
+        <div class="eps"><span class="ep"><span class="m get">GET</span><code>/auth/hosts/{hostId}/profile</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">When a guest lands on one of your listings, the page pulls your public host card with <em>getHostProfile(hostId)</em>.</span><span class="loc">client/src/pages/properties/PropertyDetails.jsx:464-490</span></li>
+          <li><span class="txt">It's the same builder as before, but told to show <b>only your public listings</b> — and because anyone can view it, no login is required.</span><span class="loc">server/Controllers/AuthController.cs:165-179</span></li>
+        </ol>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ===================== ONBOARDING ===================== -->
+  <section class="domain" id="onboarding">
+    <div class="domain-head"><span class="num">03</span><h2>Host Onboarding</h2></div>
+    <p class="domain-sub">First-time hosts build their first listing and gain host status in a single transactional step.</p>
+    <div class="grid">
+
+      <article class="feat">
+        <h3>Complete onboarding &amp; become a host</h3>
+        <div class="eps"><span class="ep"><span class="m post">POST</span><code>/host/onboarding</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">The wizard walks a first-time host through everything a listing needs — category, address and map pin, photos, house rules, price — one screen at a time so it never feels overwhelming.</span><span class="loc">client/src/pages/host/ListingWizard.jsx:127-143, 295-596</span></li>
+          <li><span class="txt">On the last screen, <b>Finish setup</b> gathers all those scattered answers into one payload via <em>buildPayload</em> and submits it.</span><span class="loc">client/src/pages/host/ListingWizard.jsx:441-484, 559-595</span></li>
+          <li><span class="txt">Because this is onboarding rather than a plain create, it routes through <em>completeHostOnboarding</em> instead.</span><span class="loc">client/src/context/AuthContext.jsx:136-141</span></li>
+          <li><span class="txt">The server puts it through the very same full-listing validator the normal create and update use, so onboarding can't quietly slip through an incomplete listing.</span><span class="loc">server/Controllers/HostController.cs:27-59</span></li>
+          <li><span class="txt">Here's the careful part: it wraps the property insert and the user's promotion to host in a single <b>transaction</b>, so you can never end up half-a-host with no listing, or a listing with no host.</span><span class="loc">server/Controllers/HostController.cs:61-77</span></li>
+          <li><span class="txt">It attaches the uploaded photos, <b>commits</b> the whole thing in one go, and returns.</span><span class="loc">server/Controllers/HostController.cs:79-92</span></li>
+          <li><span class="txt">Back on the client, <em>saveAuth</em> refreshes the user — who now carries the host flag — and drops them into their new listings.</span><span class="loc">client/src/context/AuthContext.jsx:136-141</span></li>
+        </ol>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ===================== LISTINGS ===================== -->
+  <section class="domain" id="listings">
+    <div class="domain-head"><span class="num">04</span><h2>Property Listings</h2></div>
+    <p class="domain-sub">Full CRUD plus a draft/publish lifecycle. Listings carry structured address + map pin, amenities, house rules, safety, cancellation policy, an availability window, and price. Every write broadcasts a realtime event.</p>
+    <div class="grid">
+
+      <article class="feat">
+        <h3>Create listing</h3>
+        <div class="eps"><span class="ep"><span class="m post">POST</span><code>/properties</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">A host works through the create wizard, and any photos are uploaded to S3 as they go (that's the Uploads flow next door).</span><span class="loc">client/src/pages/host/ListingWizard.jsx:295-596</span></li>
+          <li><span class="txt">Hitting <b>Save listing</b> runs <em>handleSubmit</em>, which packages up the form and calls <em>createListing</em>.</span><span class="loc">client/src/pages/host/ListingWizard.jsx:559-595</span></li>
+          <li><span class="txt">The controller first makes sure the caller is genuinely a host, then puts the payload through <em>ValidateFullListing</em> before touching the database.</span><span class="loc">server/Controllers/PropertiesController.cs:134-172</span></li>
+          <li><span class="txt">It deliberately creates the property as <b>unlisted but available</b> — a private draft — saves it, and only then attaches the image rows.</span><span class="loc">server/Controllers/PropertiesController.cs:174-181</span></li>
+          <li><span class="txt">Finally it fires a realtime <span class="m evt">property·created</span> event so any open dashboards refresh themselves, and the wizard sends the host over to their listings.</span><span class="loc">server/Controllers/PropertiesController.cs:182-189</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Browse public listings</h3>
+        <div class="eps"><span class="ep"><span class="m get">GET</span><code>/properties</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">The moment Explore mounts it kicks off <em>loadListings</em>, which reaches for <em>getPublicListings</em>.</span><span class="loc">client/src/pages/properties/Explore.jsx:116-133</span></li>
+          <li><span class="txt">The server only sends back listings that are actually bookable — <b>listed, available, and not past their end date</b> — with the newest ones first.</span><span class="loc">server/Controllers/PropertiesController.cs:45-57</span></li>
+          <li><span class="txt">To keep it quick it fetches the images and host summaries for the whole batch in a handful of queries rather than one round-trip per listing.</span><span class="loc">server/Controllers/PropertiesController.cs:717-804</span></li>
+          <li><span class="txt">The grid renders, and a realtime listener quietly re-fetches whenever a property or booking changes, so the page keeps itself current without a refresh.</span><span class="loc">client/src/pages/properties/Explore.jsx:135-143</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Single property page</h3>
+        <div class="eps"><span class="ep"><span class="m get">GET</span><code>/properties/{id}</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">Clicking a card routes to <em>/properties/:id</em>, and the page immediately loads just that one property with <em>getProperty(id)</em>.</span><span class="loc">client/src/pages/properties/PropertyDetails.jsx:1079-1098</span></li>
+          <li><span class="txt">The controller fetches it and maps the images, the host card, and an <em>IsOwner</em> flag tailored to whoever happens to be asking.</span><span class="loc">server/Controllers/PropertiesController.cs:71-89</span></li>
+          <li><span class="txt">That <em>IsOwner</em> is worked out inside <em>MapProperty</em> — it's the switch that lets the UI show owner controls to you but hide them from everyone else.</span><span class="loc">server/Controllers/PropertiesController.cs:806-868</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Availability &amp; blocked dates</h3>
+        <div class="eps"><span class="ep"><span class="m get">GET</span><code>/properties/{id}/availability</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">The booking calendar can't show open dates until it knows them, so on mount it quietly asks for the property's availability.</span><span class="loc">client/src/components/AvailabilityCalendar.jsx:99-115</span></li>
+          <li><span class="txt">The server returns the bookable window along with the ranges already <b>blocked by accepted bookings</b>.</span><span class="loc">server/Controllers/PropertiesController.cs:91-132</span></li>
+          <li><span class="txt">Those blocked ranges flow back to the date picker, which greys them out so a guest can't land on a night that's already taken.</span><span class="loc">client/src/pages/properties/PropertyDetails.jsx:905-920</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Update listing</h3>
+        <div class="eps"><span class="ep"><span class="m put">PUT</span><code>/properties/{id}</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">When a host clicks <b>Edit</b>, the app doesn't reuse whatever was on the card — <em>openEditor</em> re-fetches a fresh copy of the listing first, so you're always editing the latest.</span><span class="loc">client/src/pages/hosting/HostingDashboard.jsx:559-567</span></li>
+          <li><span class="txt">The editor opens pre-filled from that copy; the host makes changes and hits <b>Save changes</b>, which runs <em>handleSubmit</em>.</span><span class="loc">client/src/pages/hosting/HostingDashboard.jsx:290-334</span></li>
+          <li><span class="txt">It sends the whole edited form back up through <em>updateListing</em>.</span><span class="loc">client/src/pages/hosting/HostingDashboard.jsx:336-345</span></li>
+          <li><span class="txt">Server-side, the first thing checked is that you actually own this listing, and only then does it revalidate the full payload.</span><span class="loc">server/Controllers/PropertiesController.cs:216-255</span></li>
+          <li><span class="txt">It applies the field changes and <b>swaps out the entire image set</b> for the new one, then broadcasts the update so other views catch up.</span><span class="loc">server/Controllers/PropertiesController.cs:257-266</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Publish / unpublish</h3>
+        <div class="eps">
+          <span class="ep"><span class="m patch">PATCH</span><code>/properties/{id}/publish</code></span>
+          <span class="ep"><span class="m patch">PATCH</span><code>/…/unpublish</code></span>
+        </div>
+        <ol class="flow">
+          <li><span class="txt">A host flips a listing's visibility with <b>Publish</b> or <b>Unpublish</b>, both routed through the same <em>changePublishState</em> handler.</span><span class="loc">client/src/pages/hosting/HostingDashboard.jsx:585-598</span></li>
+          <li><span class="txt">It calls whichever endpoint matches the direction you're going.</span><span class="loc">client/src/api/api.js:127-135</span></li>
+          <li><span class="txt">Both endpoints funnel into one server method, <em>SetPublishState</em>, which starts by confirming you own the listing.</span><span class="loc">server/Controllers/PropertiesController.cs:341-368</span></li>
+          <li><span class="txt">Going public isn't unconditional — the listing has to be available with a valid future date window before <em>IsListed</em> is allowed to flip on.</span><span class="loc">server/Controllers/PropertiesController.cs:370-414</span></li>
+          <li><span class="txt">Once it's toggled and broadcast, the dashboard slides the card across between its Listed and Unlisted tabs.</span><span class="loc">server/Controllers/PropertiesController.cs:415-422</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Delete listing</h3>
+        <div class="eps"><span class="ep"><span class="m delete">DELETE</span><code>/properties/{id}</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">The host clicks <b>Delete</b>, confirms the prompt, and <em>remove</em> calls <em>deleteListing</em>.</span><span class="loc">client/src/pages/hosting/HostingDashboard.jsx:610-620</span></li>
+          <li><span class="txt">After the ownership check, the server refuses to delete anything that <b>still has bookings attached</b> — it returns a 409 rather than orphaning someone's trip.</span><span class="loc">server/Controllers/PropertiesController.cs:284-322</span></li>
+          <li><span class="txt">If it's clear, it removes the image rows and the property together and broadcasts the deletion.</span><span class="loc">server/Controllers/PropertiesController.cs:324-338</span></li>
+        </ol>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ===================== UPLOADS ===================== -->
+  <section class="domain" id="uploads">
+    <div class="domain-head"><span class="num">05</span><h2>Image Upload (S3)</h2></div>
+    <p class="domain-sub">The browser uploads photos directly to S3 with a short-lived presigned URL; the backend never proxies the file bytes.</p>
+    <div class="grid">
+
+      <article class="feat">
+        <h3>Upload property photos</h3>
+        <div class="eps"><span class="ep"><span class="m post">POST</span><code>/uploads/property-image-url</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">The host picks one or more image files in the wizard or editor, which triggers <em>handlePhotoChange</em>.</span><span class="loc">client/src/pages/host/ListingWizard.jsx:486-523</span></li>
+          <li><span class="txt">For each file, <em>uploadPropertyImage</em> does a little two-step — first it asks the backend for a presigned upload URL.</span><span class="loc">client/src/api/api.js:81-100</span></li>
+          <li><span class="txt">The controller passes that request to the S3 service, which checks the file type is one it allows and mints a unique object key for it.</span><span class="loc">server/Controllers/UploadsController.cs:21-56</span></li>
+          <li><span class="txt">It hands back a short-lived <b>presigned PUT URL</b> together with the public URL the file will eventually live at.</span><span class="loc">server/Services/S3ImageUploadService.cs:26-66</span></li>
+          <li><span class="txt">Now the browser uploads the actual bytes <b>straight to S3</b> — they never pass through your server, which keeps it lean and fast.</span><span class="loc">client/src/api/api.js:93-97</span></li>
+          <li><span class="txt">The returned public URL is appended to the form's photo list, ready to be saved alongside the rest of the listing.</span><span class="loc">client/src/pages/host/ListingWizard.jsx:508-516</span></li>
+        </ol>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ===================== BOOKINGS ===================== -->
+  <section class="domain" id="bookings">
+    <div class="domain-head"><span class="num">06</span><h2>Bookings &amp; Trips</h2></div>
+    <p class="domain-sub">Lifecycle <em>Pending → Accepted / Declined → Completed</em>, with payment status <em>Paid / Refunded</em>. Prices are computed server-side; date and capacity rules are enforced on every request.</p>
+    <div class="grid">
+
+      <article class="feat">
+        <h3>Request a booking</h3>
+        <div class="eps"><span class="ep"><span class="m post">POST</span><code>/bookings</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">The guest picks dates and guest counts, clicks <b>Reserve and pay</b>, and confirms in a modal — that confirmation is what runs <em>handleConfirm</em>.</span><span class="loc">client/src/pages/properties/PropertyDetails.jsx:808-828</span></li>
+          <li><span class="txt">It sends the request off with <em>createBookingRequest</em>.</span><span class="loc">client/src/api/api.js:148-151</span></li>
+          <li><span class="txt">The server is thorough before it commits to anything: it checks the dates make sense, the listing is open, the party fits, and — most importantly — that nothing <b>overlaps a booking that's already been accepted</b>.</span><span class="loc">server/Controllers/BookingController.cs:32-97</span></li>
+          <li><span class="txt">It then <b>works out the price itself</b> from the nightly rate, never trusting whatever number the client sent, and creates the booking as <em>Pending</em>.</span><span class="loc">server/Controllers/BookingController.cs:99-119</span></li>
+          <li><span class="txt">Right away it opens a Stripe Checkout session, and if Stripe stumbles it <b>deletes the booking it just created</b> so you're never left with a ghost reservation.</span><span class="loc">server/Controllers/BookingController.cs:121-140</span></li>
+          <li><span class="txt">It returns the Stripe URL, and the browser hands the guest over to Stripe to actually pay (picked up in Payments).</span><span class="loc">client/src/pages/properties/PropertyDetails.jsx:819-822</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Pay an existing booking</h3>
+        <div class="eps"><span class="ep"><span class="m post">POST</span><code>/bookings/{id}/create-payment-session</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">If a booking was created but the guest backed out of paying, they can return to My trips and hit <b>Pay now</b>, which runs <em>handlePayNow</em>.</span><span class="loc">client/src/pages/user/MyTripsPage.jsx:50-72</span></li>
+          <li><span class="txt">That spins up a fresh payment session through <em>createBookingPaymentSession</em>.</span><span class="loc">client/src/api/api.js:177-180</span></li>
+          <li><span class="txt">The server re-confirms it's really your booking and that it's genuinely <b>still unpaid</b> before it does anything.</span><span class="loc">server/Controllers/BookingController.cs:152-198</span></li>
+          <li><span class="txt">It reuses the exact same Checkout builder, stores the new session id, and returns the URL.</span><span class="loc">server/Controllers/BookingController.cs:199-207</span></li>
+          <li><span class="txt">And off to Stripe once more.</span><span class="loc">client/src/pages/user/MyTripsPage.jsx:55-60</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Host: accept / decline</h3>
+        <div class="eps"><span class="ep"><span class="m put">PUT</span><code>/bookings/{id}/status</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">The host opens a request and clicks <b>Accept</b> or <b>Decline</b>, which runs <em>handleStatusChange</em> with the chosen status.</span><span class="loc">client/src/pages/hosting/BookingRequestDetails.jsx:61-91, 167-173</span></li>
+          <li><span class="txt">It sends that decision up through <em>updateBookingStatus</em>.</span><span class="loc">client/src/api/api.js:167-170</span></li>
+          <li><span class="txt">The server first makes sure it's actually the host acting, then checks the move is even allowed from where the booking currently sits (you can't complete something that's still pending, for instance).</span><span class="loc">server/Controllers/BookingController.cs:278-316</span></li>
+          <li><span class="txt">The two rules that really matter live here: you can only <b>accept a booking that's been paid</b>, and <b>declining a paid booking automatically refunds it</b>.</span><span class="loc">server/Controllers/BookingController.cs:318-359</span></li>
+          <li><span class="txt">It saves the new status and pings both the guest and the host in realtime, so their screens update the instant the decision lands.</span><span class="loc">server/Controllers/BookingController.cs:361-390</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Guest self-checkout</h3>
+        <div class="eps"><span class="ep"><span class="m post">POST</span><code>/bookings/{id}/checkout</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">On their booking, the guest taps <b>Checkout</b>, which runs <em>handleCheckout</em>.</span><span class="loc">client/src/pages/trips/BookingDetails.jsx:96-118, 283</span></li>
+          <li><span class="txt">That calls <em>checkoutBooking</em> for this particular booking.</span><span class="loc">client/src/api/api.js:172-175</span></li>
+          <li><span class="txt">The server marks the stay as checked out — and that quiet status change is exactly what <b>opens up the ability to leave a review</b>.</span><span class="loc">server/Controllers/BookingController.cs:394-450</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Read bookings (inbox &amp; trips)</h3>
+        <div class="eps">
+          <span class="ep"><span class="m get">GET</span><code>/bookings/host/requests</code></span>
+          <span class="ep"><span class="m get">GET</span><code>/bookings/my-trips</code></span>
+        </div>
+        <ol class="flow">
+          <li><span class="txt">The host's dashboard pulls its incoming requests with <em>getBookingRequests</em>, while a traveller's page loads their own trips with <em>getMyTrips</em>.</span><span class="loc">client/src/api/api.js:141-155</span></li>
+          <li><span class="txt">One endpoint gathers everything sitting in the host's queue waiting on a decision.</span><span class="loc">server/Controllers/BookingController.cs:454-508</span></li>
+          <li><span class="txt">The other returns the guest's own trips, and a single booking has its own detail endpoint on top of those.</span><span class="loc">server/Controllers/BookingController.cs:210-276, 510-560</span></li>
+        </ol>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ===================== PAYMENTS ===================== -->
+  <section class="domain" id="payments">
+    <div class="domain-head"><span class="num">07</span><h2>Payments (Stripe)</h2></div>
+    <p class="domain-sub">Stripe Checkout for card payments in MYR. The <b>signature-verified webhook — not the success redirect — is the source of truth</b> for payment. Idempotency guards protect against Stripe retries.</p>
+    <div class="grid">
+
+      <article class="feat">
+        <h3>Create Checkout session</h3>
+        <div class="eps"><span class="ep"><span class="plain">internal</span></span></div>
+        <ol class="flow">
+          <li><span class="txt">This isn't an endpoint of its own — it's called from inside booking creation, handed the booking id, the title, and the amount.</span><span class="loc">server/Controllers/BookingController.cs:121-129</span></li>
+          <li><span class="txt">It assembles a Checkout session set to card payments, with success and cancel URLs that point right back at your app.</span><span class="loc">server/Settings/StripePaymentService.cs:20-36</span></li>
+          <li><span class="txt">The single line item uses the <b>amount the server calculated, expressed in sen</b>, and it tucks the booking id into the session metadata so the payment can be traced back to it later.</span><span class="loc">server/Settings/StripePaymentService.cs:37-57</span></li>
+          <li><span class="txt">Then it calls Stripe and passes the live session straight back up the chain.</span><span class="loc">server/Settings/StripePaymentService.cs:59-60</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Payment webhook (confirmation)</h3>
+        <div class="eps"><span class="ep"><span class="m post">POST</span><code>/payments/webhook</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">Once the guest finishes paying, Stripe calls your server directly — no browser, no login — at the webhook.</span><span class="loc">server/Controllers/PaymentsController.cs:30-50</span></li>
+          <li><span class="txt">The very first thing it does is <b>verify Stripe's signature</b> against your webhook secret, so a forged "payment succeeded" call gets thrown out before it can do any harm.</span><span class="loc">server/Controllers/PaymentsController.cs:52-64</span></li>
+          <li><span class="txt">It only cares about the "checkout completed" event, and uses the session id on it to find the booking it belongs to.</span><span class="loc">server/Controllers/PaymentsController.cs:66-85</span></li>
+          <li><span class="txt">Stripe likes to retry webhooks, so there are <b>guards that quietly do nothing</b> if the booking is already paid or already refunded.</span><span class="loc">server/Controllers/PaymentsController.cs:87-102</span></li>
+          <li><span class="txt">Only now does it mark the booking <em>Paid</em>, stash the payment reference for any future refund, and notify both parties — and it's this webhook, not the success page, that counts as real proof of payment.</span><span class="loc">server/Controllers/PaymentsController.cs:104-125</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Refund on decline</h3>
+        <div class="eps"><span class="ep"><span class="plain">internal</span></span></div>
+        <ol class="flow">
+          <li><span class="txt">This kicks in the moment a host declines a booking that had already been paid for.</span><span class="loc">server/Controllers/BookingController.cs:344-359</span></li>
+          <li><span class="txt">It refunds against the stored payment reference, and an <b>idempotency key</b> makes sure that even if the decline is retried, the guest can't accidentally be refunded twice.</span><span class="loc">server/Settings/StripePaymentService.cs:63-82</span></li>
+        </ol>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ===================== REVIEWS ===================== -->
+  <section class="domain" id="reviews">
+    <div class="domain-head"><span class="num">08</span><h2>Verified-Stay Reviews</h2></div>
+    <p class="domain-sub">Only completed stays can be reviewed, inside a 14-day window. Reviews carry six category ratings plus an optional separate host rating; the property endpoint returns full aggregates.</p>
+    <div class="grid">
+
+      <article class="feat">
+        <h3>Property reviews (aggregated)</h3>
+        <div class="eps"><span class="ep"><span class="m get">GET</span><code>/reviews/property/{propertyId}</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">The property page mounts a <em>PropertyReviews</em> section that goes and fetches its own data.</span><span class="loc">client/src/components/PropertyReviews.jsx:19-40</span></li>
+          <li><span class="txt">It calls <em>getPropertyReviews</em> for this listing.</span><span class="loc">client/src/api/api.js:190-193</span></li>
+          <li><span class="txt">The server doesn't just hand back raw reviews — it works out the <b>overall score and each category average</b> on the way out.</span><span class="loc">server/Controllers/ReviewsController.cs:30-73</span></li>
+          <li><span class="txt">It also builds the <b>1–5 star histogram</b> you see in the summary before returning the full list.</span><span class="loc">server/Controllers/ReviewsController.cs:74-83</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Review eligibility</h3>
+        <div class="eps"><span class="ep"><span class="m get">GET</span><code>/reviews/eligibility/{bookingId}</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">Before it even shows the form, the app checks whether this stay is one you're actually allowed to review.</span><span class="loc">client/src/components/ReviewForm.jsx:53-70</span></li>
+          <li><span class="txt">The server loads the booking and runs it through a small set of rules.</span><span class="loc">server/Controllers/ReviewsController.cs:86-116</span></li>
+          <li><span class="txt">And the rules are strict: it has to be your booking, the stay has to be complete, you can't have reviewed it already, and it has to be <b>within 14 days of checkout</b>.</span><span class="loc">server/Controllers/ReviewsController.cs:213-262</span></li>
+          <li><span class="txt">Whatever comes back decides whether the form lets you submit, or instead explains why it won't.</span><span class="loc">client/src/components/ReviewForm.jsx:53-70</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Create review</h3>
+        <div class="eps"><span class="ep"><span class="m post">POST</span><code>/reviews</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">The guest rates each category, writes a comment, and clicks <b>Submit</b>, which runs <em>handleSubmit</em>.</span><span class="loc">client/src/components/ReviewForm.jsx:72-132</span></li>
+          <li><span class="txt">It posts the review through <em>createReview</em>.</span><span class="loc">client/src/api/api.js:200-203</span></li>
+          <li><span class="txt">The server doesn't take the earlier eligibility check on faith — it <b>runs the whole thing again</b> here, and also blocks you from reviewing your own place.</span><span class="loc">server/Controllers/ReviewsController.cs:148-179</span></li>
+          <li><span class="txt">It stores all six category ratings plus the optional, separate host rating.</span><span class="loc">server/Controllers/ReviewsController.cs:181-200</span></li>
+          <li><span class="txt">Then it broadcasts <span class="m evt">review·created</span> and confirms the save.</span><span class="loc">server/Controllers/ReviewsController.cs:201-210</span></li>
+        </ol>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ===================== CHAT ===================== -->
+  <section class="domain" id="chat">
+    <div class="domain-head"><span class="num">09</span><h2>Messaging / Chat</h2></div>
+    <p class="domain-sub">Guest↔host conversations keyed by either a booking or a property inquiry, with message history and sending.</p>
+    <div class="grid">
+
+      <article class="feat">
+        <h3>Open the messages page</h3>
+        <div class="eps"><span class="ep"><span class="m get">GET</span><code>/chat/conversations</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">Landing on the messages page kicks off <em>loadConversations</em>.</span><span class="loc">client/src/pages/chat/MessagesPage.jsx:50-60</span></li>
+          <li><span class="txt">It calls <em>getConversations</em> to pull the thread list.</span><span class="loc">client/src/api/api.js:213-216</span></li>
+          <li><span class="txt">The server returns your conversations, each already carrying enough context — the other person, the last message — to render the list without extra calls.</span><span class="loc">server/Controllers/ChatController.cs:26-138</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Start or get a conversation</h3>
+        <div class="eps"><span class="ep"><span class="m post">POST</span><code>/chat/conversations</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">From a booking or a listing, clicking <b>Message host</b> (or guest) runs <em>getOrCreateConversation</em>.</span><span class="loc">client/src/pages/trips/BookingDetails.jsx:81-90</span></li>
+          <li><span class="txt">It posts either a booking id or a property id, depending on where you started the conversation from.</span><span class="loc">client/src/api/api.js:218-226</span></li>
+          <li><span class="txt">The server figures out the context and is careful not to spin up duplicates — it <b>reuses an existing thread</b> if one already fits, and only creates a new one if it has to.</span><span class="loc">server/Controllers/ChatController.cs:140-238</span></li>
+          <li><span class="txt">Then the app drops you straight into that conversation.</span><span class="loc">client/src/pages/trips/BookingDetails.jsx:86-87</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>Read &amp; send messages</h3>
+        <div class="eps">
+          <span class="ep"><span class="m get">GET</span><code>/…/{id}/messages</code></span>
+          <span class="ep"><span class="m post">POST</span><code>/…/{id}/messages</code></span>
+        </div>
+        <ol class="flow">
+          <li><span class="txt">Opening a thread loads its message history and keeps it refreshed.</span><span class="loc">client/src/pages/chat/MessagesPage.jsx:61-79</span></li>
+          <li><span class="txt">The server returns the messages, but only for a conversation you're genuinely a part of.</span><span class="loc">server/Controllers/ChatController.cs:281-333</span></li>
+          <li><span class="txt">You type, submit, and <em>handleSend</em> posts the new message.</span><span class="loc">client/src/pages/chat/MessagesPage.jsx:120-160</span></li>
+          <li><span class="txt">The server saves it and pushes it out over realtime, so the other person watches it appear rather than having to refresh.</span><span class="loc">server/Controllers/ChatController.cs:335-390</span></li>
+        </ol>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ===================== REALTIME ===================== -->
+  <section class="domain" id="realtime">
+    <div class="domain-head"><span class="num">10</span><h2>Realtime (SignalR)</h2></div>
+    <p class="domain-sub">A single SignalR hub broadcasts change events so dashboards, the explore grid, and chat update live without polling.</p>
+    <div class="grid">
+
+      <article class="feat">
+        <h3>Live update pipeline</h3>
+        <div class="eps"><span class="ep"><span class="m evt">HUB</span><code>/hubs/cloudstay</code></span></div>
+        <ol class="flow">
+          <li><span class="txt">Once you're logged in, the client quietly opens a live SignalR connection to the hub in the background.</span><span class="loc">client/src/components/RealtimeUpdates.jsx:16-50</span></li>
+          <li><span class="txt">The server registers that hub and slots each connection into a <b>group keyed to that user</b>, which is what lets it later message one person specifically.</span><span class="loc">server/Program.cs:119</span></li>
+          <li><span class="txt">Whenever something changes, a controller calls the notifier — <em>NotifyUsersAsync</em> to reach specific people, or <em>NotifyAllAsync</em> to tell everyone at once.</span><span class="loc">server/Services/RealtimeNotifier.cs:19-43</span></li>
+          <li><span class="txt">The client catches that push and re-broadcasts it as a <em>cloudstay:data-changed</em> browser event, which is the cue individual pages listen for to quietly refetch.</span><span class="loc">client/src/components/RealtimeUpdates.jsx:35-60</span></li>
+        </ol>
+      </article>
+
+    </div>
+  </section>
+
+  <!-- ===================== CLIENT-SIDE ===================== -->
+  <section class="domain" id="client">
+    <div class="domain-head"><span class="num">11</span><h2>Client-side Features</h2></div>
+    <p class="domain-sub">Two features live entirely in the browser with no backend endpoint — useful to know when tracing why there's no server call.</p>
+    <div class="grid">
+
+      <article class="feat">
+        <h3>Saved places / wishlist</h3>
+        <div class="eps"><span class="ep"><span class="plain">client-only</span></span></div>
+        <ol class="flow">
+          <li><span class="txt">On Explore, tapping a card's heart runs <em>toggleSaved</em> — and if you're not logged in, it gently nudges you to the login page first.</span><span class="loc">client/src/pages/properties/Explore.jsx:160-184</span></li>
+          <li><span class="txt">There's no server call at all here; the listing is simply added to or pulled from a <b>per-user slot in localStorage</b>.</span><span class="loc">client/src/utils/localState.js:1-15</span></li>
+          <li><span class="txt">The Saved Places page reads straight out of that same store, and its own heart button is how you remove them.</span><span class="loc">client/src/pages/user/SavedPlacesPage.jsx:12-46</span></li>
+        </ol>
+      </article>
+
+      <article class="feat">
+        <h3>In-app notifications</h3>
+        <div class="eps"><span class="ep"><span class="plain">client-only</span></span></div>
+        <ol class="flow">
+          <li><span class="txt">Incoming realtime events get turned into notifications through <em>addNotification</em>, which <b>skips duplicates</b> by checking the event id first.</span><span class="loc">client/src/utils/localState.js:55-82</span></li>
+          <li><span class="txt">The bell and the page both read them back <b>newest-first</b> out of localStorage.</span><span class="loc">client/src/utils/localState.js:17-53</span></li>
+          <li><span class="txt">On the page you can <b>mark everything read</b> in one go, or click a single notification to jump to whatever it's about.</span><span class="loc">client/src/pages/user/NotificationsPage.jsx:188-212</span></li>
+        </ol>
+      </article>
+
+    </div>
+
+    <div class="callout">
+      <b>The one rule that runs through the whole backend:</b> the client is never trusted for anything that matters —
+      booking prices are recomputed server-side, payment is confirmed only by the signature-verified Stripe webhook,
+      review eligibility is re-checked on submit, and every mutating route verifies ownership before it acts.
+    </div>
+  </section>
+
+  <footer>
+    CloudStay backend reference · line ranges are a snapshot of the current source and drift as the code changes — the file &amp; handler/method names are the stable anchor if a number ever looks off.
+    <div class="stack">ASP.NET Core · EF Core / PostgreSQL · SignalR · Stripe · AWS S3 · React + Vite</div>
+  </footer>
+</div>
