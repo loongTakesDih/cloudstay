@@ -630,7 +630,11 @@ function MeetHostSection({
         <HostProfileModal
           host={host}
           onClose={() => setShowProfile(false)}
-          onListingOpen={onListingOpen}
+          onListingOpen={(listingId) => {
+            setShowProfile(false);
+            window.scrollTo({ top: 0 });
+            onListingOpen(listingId);
+          }}
         />
       )}
     </>
