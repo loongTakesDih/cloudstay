@@ -67,7 +67,7 @@ function UserProfileModal({ userId, fallbackName = "CloudStay member", title = "
         if (event.target === event.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-md overflow-hidden rounded-[2rem] bg-white shadow-2xl">
+      <div className="w-full max-w-lg overflow-hidden rounded-[2rem] bg-white shadow-2xl">
         <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
           <h2 className="text-lg font-bold text-slate-950">{title}</h2>
           <button
@@ -115,11 +115,11 @@ function UserProfileModal({ userId, fallbackName = "CloudStay member", title = "
                 </div>
               </div>
 
-              <div className="mt-6 grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center">
+              <div className="mt-6 grid grid-cols-3 divide-x divide-slate-200 rounded-2xl border border-slate-200 bg-white">
                 {activityStats.map(([value, label]) => (
-                  <div key={label}>
-                    <p className="text-lg font-extrabold text-slate-950">{value}</p>
-                    <p className="mt-0.5 text-[11px] font-semibold leading-4 text-slate-500">
+                  <div key={label} className="px-3 py-4 text-center">
+                    <p className="text-2xl font-extrabold text-slate-950">{value}</p>
+                    <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
                       {label}
                     </p>
                   </div>
