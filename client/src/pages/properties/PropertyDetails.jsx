@@ -118,9 +118,35 @@ function PropertyPhotoGallery({ imageUrl, imageUrls = [], title }) {
     );
   }
 
+  const count = visiblePhotos.length;
+  const galleryLayouts = {
+    1: { section: "md:grid-cols-1", tile: () => "" },
+    2: { section: "md:grid-cols-2", tile: () => "" },
+    3: {
+      section: "md:grid-cols-2 md:grid-rows-2",
+      tile: (index) => (index === 0 ? "md:row-span-2" : ""),
+    },
+    4: {
+      section: "md:grid-cols-4 md:grid-rows-2",
+      tile: (index) =>
+        index === 0
+          ? "md:col-span-2 md:row-span-2"
+          : index === 1
+            ? "md:col-span-2"
+            : "",
+    },
+    5: {
+      section: "md:grid-cols-4 md:grid-rows-2",
+      tile: (index) => (index === 0 ? "md:col-span-2 md:row-span-2" : ""),
+    },
+  };
+  const galleryLayout = galleryLayouts[Math.min(count, 5)];
+
   return (
     <>
-      <section className="grid gap-2 overflow-hidden rounded-3xl bg-slate-100 md:grid-cols-4 md:grid-rows-2">
+      <section
+        className={`grid gap-2 overflow-hidden rounded-3xl bg-slate-100 md:aspect-[16/9] ${galleryLayout.section}`}
+      >
         {visiblePhotos.map((photo, index) => {
           const isHero = index === 0;
           const showMore = index === 4 && remainingCount > 0;
@@ -130,11 +156,9 @@ function PropertyPhotoGallery({ imageUrl, imageUrls = [], title }) {
               key={`${photo}-${index}`}
               type="button"
               onClick={() => setSelectedIndex(index)}
-              className={`group relative overflow-hidden bg-slate-100 text-left ${
-                isHero
-                  ? "aspect-[16/10] md:col-span-2 md:row-span-2 md:aspect-auto"
-                  : "aspect-[4/3]"
-              }`}
+              className={`group relative overflow-hidden bg-slate-100 text-left md:aspect-auto md:h-full ${
+                isHero ? "aspect-[16/10]" : "aspect-[4/3]"
+              } ${galleryLayout.tile(index)}`}
               aria-label={`View photo ${index + 1} of ${photos.length}`}
             >
               <img
