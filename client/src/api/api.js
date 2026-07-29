@@ -65,6 +65,11 @@ export const getHostProfile = async (hostId) => {
   return response.data;
 };
 
+export const getUserProfile = async (userId) => {
+  const response = await api.get(`/auth/users/${userId}/profile`);
+  return response.data;
+};
+
 // ==========================================
 // HOSTING & PROPERTIES
 // ==========================================

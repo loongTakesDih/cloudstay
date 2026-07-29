@@ -6,6 +6,7 @@ import {
   updateBookingStatus,
 } from "../../api/api.js";
 import AppHeader from "../../components/AppHeader";
+import UserProfileModal from "../../components/UserProfileModal";
 import { useAuth } from "../../context/useAuth";
 import { addNotification } from "../../utils/localState.js";
 
@@ -26,6 +27,7 @@ function BookingRequestDetails() {
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [openingChat, setOpeningChat] = useState(false);
+  const [showGuestProfile, setShowGuestProfile] = useState(false);
 
   useEffect(() => {
     if (user !== null && !user.isHost) {
@@ -132,7 +134,17 @@ function BookingRequestDetails() {
             <div className="grid grid-cols-2 gap-4">
               <div className="rounded-2xl bg-slate-50 p-4">
                 <p className="text-xs font-bold uppercase text-slate-500">Guest</p>
-                <p className="mt-1 font-bold">{booking.guest?.username}</p>
+                {booking.guest?.id ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowGuestProfile(true)}
+                    className="mt-1 font-bold text-rose-600 underline-offset-4 hover:underline"
+                  >
+                    {booking.guest?.username || "Guest"}
+                  </button>
+                ) : (
+                  <p className="mt-1 font-bold">{booking.guest?.username}</p>
+                )}
               </div>
               <div className="rounded-2xl bg-slate-50 p-4">
                 <p className="text-xs font-bold uppercase text-slate-500">Total Price</p>
@@ -198,6 +210,15 @@ function BookingRequestDetails() {
           </div>
         </section>
       </main>
+
+      {showGuestProfile && booking.guest?.id && (
+        <UserProfileModal
+          userId={booking.guest.id}
+          fallbackName={booking.guest?.username || "Guest"}
+          title="Guest profile"
+          onClose={() => setShowGuestProfile(false)}
+        />
+      )}
     </div>
   );
 }

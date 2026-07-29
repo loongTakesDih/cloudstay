@@ -52,9 +52,36 @@ public class HostReviewItemDto
 
     public DateTime? StayDate { get; set; }
 
+    public int GuestId { get; set; }
+
     public string GuestName { get; set; } = "Guest";
 
     public string PropertyTitle { get; set; } = "CloudStay property";
+}
+
+public class PublicUserProfileResponseDto
+{
+    public int UserId { get; set; }
+
+    public string Username { get; set; } = string.Empty;
+
+    public bool IsHost { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    public DateTime? HostSince { get; set; }
+
+    public string? ProfilePictureUrl { get; set; }
+
+    public string? AboutMe { get; set; }
+
+    public string? Work { get; set; }
+
+    public string? Languages { get; set; }
+
+    public string? LivesIn { get; set; }
+
+    public List<HostProfileDetailDto> ProfileDetails { get; set; } = [];
 }
 
 public class HostListingItemDto

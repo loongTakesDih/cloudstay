@@ -178,6 +178,75 @@ public class AuthController : ControllerBase
         return Ok(result);
     }
 
+    [Authorize]
+    [HttpGet("users/{userId:int}/profile")]
+    public async Task<ActionResult<PublicUserProfileResponseDto>> GetPublicUserProfile(int userId)
+    {
+        var user = await _context.Users
+            .AsNoTracking()
+            .Where(item => item.Id == userId)
+            .Select(item => new
+            {
+                item.Id,
+                item.Username,
+                item.IsHost,
+                item.CreatedAt,
+                item.HostSince,
+                item.ProfilePictureUrl,
+                item.AboutMe,
+                item.Work,
+                item.Languages,
+                item.LivesIn,
+                item.DreamDestination,
+                item.UselessSkill,
+                item.Pets,
+                item.BirthDecade,
+                item.School,
+                item.SpendTooMuchTime,
+                item.FunFact,
+                item.FavoriteHighSchoolSong,
+                item.BiographyTitle,
+                item.ObsessedWith
+            })
+            .FirstOrDefaultAsync();
+
+        if (user == null)
+        {
+            return NotFound(new
+            {
+                message = "User not found."
+            });
+        }
+
+        return Ok(new PublicUserProfileResponseDto
+        {
+            UserId = user.Id,
+            Username = user.Username,
+            IsHost = user.IsHost,
+            CreatedAt = user.CreatedAt,
+            HostSince = user.HostSince,
+            ProfilePictureUrl = user.ProfilePictureUrl,
+            AboutMe = user.AboutMe,
+            Work = user.Work,
+            Languages = user.Languages,
+            LivesIn = user.LivesIn,
+            ProfileDetails = BuildProfileDetails(
+                user.DreamDestination,
+                user.Work,
+                user.UselessSkill,
+                user.Pets,
+                user.BirthDecade,
+                user.School,
+                user.SpendTooMuchTime,
+                user.FunFact,
+                user.FavoriteHighSchoolSong,
+                user.BiographyTitle,
+                user.ObsessedWith,
+                user.Languages,
+                user.LivesIn)
+        });
+    }
+
     private async Task<HostProfileResponseDto?> BuildHostProfileAsync(
         int hostId,
         bool includePrivateListings)
@@ -234,6 +303,7 @@ public class AuthController : ControllerBase
                 Comment = review.HostReviewComment,
                 CreatedAt = review.CreatedAt,
                 StayDate = review.Booking != null ? review.Booking.CheckOut : null,
+                GuestId = review.GuestId,
                 GuestName = review.Guest != null ? review.Guest.Username : "Guest",
                 PropertyTitle = review.Property != null ? review.Property.Title : "CloudStay property"
             })

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AppHeader from "../../components/AppHeader";
+import UserProfileModal from "../../components/UserProfileModal";
 import { getMyHostProfile, getMyReviews, getMyTrips, updateMyProfile } from "../../api/api.js";
 import { useAuth } from "../../context/useAuth";
 
@@ -293,7 +294,7 @@ function ProfileHero({ user, profile, pastTrips, reviews, onEdit }) {
   );
 }
 
-function HostReviewsModal({ reviews, onClose }) {
+function HostReviewsModal({ reviews, onClose, onOpenGuest, onOpenComment }) {
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 p-4 backdrop-blur-sm">
       <div className="w-full max-w-3xl overflow-hidden rounded-[2rem] bg-white shadow-2xl">
@@ -317,14 +318,30 @@ function HostReviewsModal({ reviews, onClose }) {
               <article key={review.id} className="rounded-3xl border border-slate-200 p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h3 className="font-bold text-slate-950">{review.guestName || "Guest"}</h3>
+                    {review.guestId ? (
+                      <button
+                        type="button"
+                        onClick={() => onOpenGuest(review)}
+                        className="font-bold text-rose-600 underline-offset-4 hover:underline"
+                      >
+                        {review.guestName || "Guest"}
+                      </button>
+                    ) : (
+                      <h3 className="font-bold text-slate-950">{review.guestName || "Guest"}</h3>
+                    )}
                     <p className="mt-1 text-xs font-semibold text-slate-500">
                       {review.propertyTitle || "CloudStay property"} - {formatDate(review.createdAt)}
                     </p>
                   </div>
                   <span className="text-sm font-bold text-amber-500">{renderStars(review.rating)}</span>
                 </div>
-                <p className="mt-4 leading-7 text-slate-600">{review.comment || "No written host review."}</p>
+                <button
+                  type="button"
+                  onClick={() => onOpenComment(review)}
+                  className="mt-4 block w-full text-left leading-7 text-slate-600 transition hover:text-slate-900"
+                >
+                  {review.comment || "No written host review."}
+                </button>
               </article>
             ))}
           </div>
@@ -334,19 +351,85 @@ function HostReviewsModal({ reviews, onClose }) {
   );
 }
 
-function HostReviewCard({ review }) {
+function ReviewDetailModal({ review, onClose, onViewGuest }) {
+  return (
+    <div
+      className="fixed inset-0 z-[60] grid place-items-center bg-slate-950/50 p-4 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Guest review"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div className="w-full max-w-lg overflow-hidden rounded-[2rem] bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5">
+          <div>
+            <h2 className="text-lg font-bold text-slate-950">Guest review</h2>
+            <p className="mt-1 text-sm text-slate-500">
+              {review.propertyTitle || "CloudStay property"} - {formatDate(review.createdAt)}
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full border border-slate-200 text-xl leading-none text-slate-600 transition hover:bg-slate-50"
+            aria-label="Close review"
+          >
+            x
+          </button>
+        </div>
+        <div className="max-h-[70vh] overflow-y-auto p-6">
+          <div className="flex items-center justify-between gap-3">
+            {review.guestId && onViewGuest ? (
+              <button
+                type="button"
+                onClick={onViewGuest}
+                className="font-bold text-rose-600 underline-offset-4 hover:underline"
+              >
+                {review.guestName || "Guest"}
+              </button>
+            ) : (
+              <h3 className="font-bold text-slate-950">{review.guestName || "Guest"}</h3>
+            )}
+            <span className="text-sm font-bold text-amber-500">{renderStars(review.rating)}</span>
+          </div>
+          <p className="mt-4 whitespace-pre-line leading-7 text-slate-700">
+            {review.comment || "No written host review."}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HostReviewCard({ review, onOpenGuest, onOpenComment }) {
   return (
     <article className="rounded-3xl border border-slate-200 bg-white p-5">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="font-bold text-slate-950">{review.guestName || "Guest"}</h3>
+          {review.guestId ? (
+            <button
+              type="button"
+              onClick={() => onOpenGuest(review)}
+              className="font-bold text-rose-600 underline-offset-4 hover:underline"
+            >
+              {review.guestName || "Guest"}
+            </button>
+          ) : (
+            <h3 className="font-bold text-slate-950">{review.guestName || "Guest"}</h3>
+          )}
           <p className="mt-1 text-xs font-semibold text-slate-500">{formatDate(review.createdAt)}</p>
         </div>
         <span className="shrink-0 text-sm font-bold text-amber-500">{renderStars(review.rating)}</span>
       </div>
-      <p className="mt-4 line-clamp-4 text-sm leading-7 text-slate-600">
-        {review.comment || "No written host review."}
-      </p>
+      <button
+        type="button"
+        onClick={() => onOpenComment(review)}
+        className="mt-4 block w-full text-left text-sm leading-7 text-slate-600 transition hover:text-slate-900"
+      >
+        <span className="line-clamp-4">{review.comment || "No written host review."}</span>
+      </button>
       <p className="mt-4 truncate text-xs font-bold uppercase tracking-wide text-slate-400">
         {review.propertyTitle || "CloudStay property"}
       </p>
@@ -386,6 +469,11 @@ function HostListingCard({ listing, onOpen }) {
 
 function HostProfileView({ data, profile, onEdit, onListingOpen }) {
   const [showAllReviews, setShowAllReviews] = useState(false);
+  const [guestProfile, setGuestProfile] = useState(null);
+  const [activeReview, setActiveReview] = useState(null);
+  const openGuest = (review) =>
+    setGuestProfile({ id: review.guestId, name: review.guestName });
+  const openComment = (review) => setActiveReview(review);
   const reviews = data?.hostReviews || [];
   const listings = data?.listings || [];
   const visibleReviews = reviews.slice(0, 3);
@@ -474,7 +562,12 @@ function HostProfileView({ data, profile, onEdit, onListingOpen }) {
           <>
             <div className="mt-6 grid gap-5 md:grid-cols-3">
               {visibleReviews.map((review) => (
-                <HostReviewCard key={review.id} review={review} />
+                <HostReviewCard
+                  key={review.id}
+                  review={review}
+                  onOpenGuest={openGuest}
+                  onOpenComment={openComment}
+                />
               ))}
             </div>
             {reviews.length > 3 && (
@@ -511,7 +604,36 @@ function HostProfileView({ data, profile, onEdit, onListingOpen }) {
       </section>
 
       {showAllReviews && (
-        <HostReviewsModal reviews={reviews} onClose={() => setShowAllReviews(false)} />
+        <HostReviewsModal
+          reviews={reviews}
+          onClose={() => setShowAllReviews(false)}
+          onOpenGuest={openGuest}
+          onOpenComment={openComment}
+        />
+      )}
+
+      {activeReview && (
+        <ReviewDetailModal
+          review={activeReview}
+          onClose={() => setActiveReview(null)}
+          onViewGuest={
+            activeReview.guestId
+              ? () => {
+                  openGuest(activeReview);
+                  setActiveReview(null);
+                }
+              : undefined
+          }
+        />
+      )}
+
+      {guestProfile?.id && (
+        <UserProfileModal
+          userId={guestProfile.id}
+          fallbackName={guestProfile.name || "Guest"}
+          title="Guest profile"
+          onClose={() => setGuestProfile(null)}
+        />
       )}
     </div>
   );
