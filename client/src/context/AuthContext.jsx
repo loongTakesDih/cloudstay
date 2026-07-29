@@ -146,6 +146,13 @@ export function AuthProvider({ children }) {
     setUser(null);
   };
 
+  const updateUser = (authData) => {
+    const { user: userData } = normalizeAuthResponse(authData);
+    if (userData) {
+      setUser(userData);
+    }
+  };
+
   useEffect(() => {
     const loadCurrentUser = async () => {
       const storedToken = localStorage.getItem(TOKEN_KEY);
@@ -203,6 +210,7 @@ export function AuthProvider({ children }) {
         becomeHost,
         completeHostOnboarding,
         logout,
+        updateUser,
         getRedirectPath,
         isAuthenticated: !!user,
       }}

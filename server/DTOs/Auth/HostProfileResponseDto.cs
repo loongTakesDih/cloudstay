@@ -81,6 +81,10 @@ public class PublicUserProfileResponseDto
 
     public string? LivesIn { get; set; }
 
+    public int TripCount { get; set; }
+
+    public int ReviewCount { get; set; }
+
     public List<HostProfileDetailDto> ProfileDetails { get; set; } = [];
 }
 

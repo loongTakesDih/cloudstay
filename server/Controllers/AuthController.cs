@@ -218,6 +218,16 @@ public class AuthController : ControllerBase
             });
         }
 
+        var tripCount = await _context.Bookings
+            .CountAsync(booking =>
+                booking.GuestId == userId &&
+                (booking.Status == "Accepted" ||
+                 booking.Status == "Completed" ||
+                 booking.Status == "CheckedOut"));
+
+        var reviewCount = await _context.Reviews
+            .CountAsync(review => review.GuestId == userId);
+
         return Ok(new PublicUserProfileResponseDto
         {
             UserId = user.Id,
@@ -230,6 +240,8 @@ public class AuthController : ControllerBase
             Work = user.Work,
             Languages = user.Languages,
             LivesIn = user.LivesIn,
+            TripCount = tripCount,
+            ReviewCount = reviewCount,
             ProfileDetails = BuildProfileDetails(
                 user.DreamDestination,
                 user.Work,

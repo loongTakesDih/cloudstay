@@ -44,7 +44,18 @@ function UserProfileModal({ userId, fallbackName = "CloudStay member", title = "
   const memberSince = profile?.createdAt
     ? new Date(profile.createdAt).getFullYear()
     : null;
+  const daysOnCloudStay = profile?.createdAt
+    ? Math.max(
+        0,
+        Math.floor((Date.now() - new Date(profile.createdAt).getTime()) / 86400000),
+      )
+    : null;
   const details = profile?.profileDetails || [];
+  const activityStats = [
+    [profile?.tripCount ?? 0, "trips"],
+    [profile?.reviewCount ?? 0, "reviews"],
+    [daysOnCloudStay ?? 0, "days on CloudStay"],
+  ];
 
   return (
     <div
@@ -102,6 +113,17 @@ function UserProfileModal({ userId, fallbackName = "CloudStay member", title = "
                     </p>
                   )}
                 </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-3 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-center">
+                {activityStats.map(([value, label]) => (
+                  <div key={label}>
+                    <p className="text-lg font-extrabold text-slate-950">{value}</p>
+                    <p className="mt-0.5 text-[11px] font-semibold leading-4 text-slate-500">
+                      {label}
+                    </p>
+                  </div>
+                ))}
               </div>
 
               {profile?.aboutMe ? (

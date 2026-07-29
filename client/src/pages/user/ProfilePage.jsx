@@ -801,6 +801,7 @@ function InterestsEditorModal({ selectedInterests, onClose, onSave }) {
 }
 
 function EditProfile({ initialProfile, onSaved }) {
+  const { updateUser } = useAuth();
   const [form, setForm] = useState(initialProfile);
   const [activeEditor, setActiveEditor] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -814,6 +815,7 @@ function EditProfile({ initialProfile, onSaved }) {
 
     try {
       const updated = await updateMyProfile(form);
+      updateUser(updated);
       onSaved(buildProfile(updated));
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Could not save your profile.");
