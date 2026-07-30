@@ -460,7 +460,7 @@ function HostListingCard({ listing, onOpen }) {
         <h3 className="truncate text-lg font-bold">{listing.title || "CloudStay listing"}</h3>
         <p className="mt-1 truncate text-sm text-slate-500">{listing.location || "Location unavailable"}</p>
         <p className="mt-4 text-sm font-bold text-slate-950">
-          RM {listing.pricePerNight} <span className="font-normal text-slate-500">night</span>
+          RM {listing.pricePerNight} <span className="font-normal text-slate-500">per night</span>
         </p>
       </div>
     </button>

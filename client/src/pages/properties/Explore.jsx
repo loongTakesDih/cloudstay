@@ -336,7 +336,7 @@ function ExploreStays() {
                   )}
                   <h2 className="mt-3 truncate text-base font-bold text-slate-950">{listing.title}</h2>
                   <p className="mt-1 text-sm font-bold text-slate-950">
-                    RM {listing.pricePerNight} <span className="font-normal text-slate-500">night</span>
+                    RM {listing.pricePerNight} <span className="font-normal text-slate-500">per night</span>
                   </p>
                 </article>
               );

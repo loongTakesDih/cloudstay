@@ -374,7 +374,7 @@ function HostListingCard({ listing, onOpen }) {
         <h3 className="truncate text-lg font-bold">{listing.title || "CloudStay listing"}</h3>
         <p className="mt-1 truncate text-sm text-slate-500">{listing.location || "Location unavailable"}</p>
         <p className="mt-4 text-sm font-bold text-slate-950">
-          RM {listing.pricePerNight} <span className="font-normal text-slate-500">night</span>
+          RM {listing.pricePerNight} <span className="font-normal text-slate-500">per night</span>
         </p>
       </div>
     </button>
@@ -995,7 +995,7 @@ function PropertyBookingCard({ listing, user }) {
     <>
       <aside className="h-fit self-start rounded-3xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/70 lg:sticky lg:top-6">
         <p className="text-2xl font-bold text-slate-950">
-          RM {listing.pricePerNight} <span className="text-sm font-semibold text-slate-500">night</span>
+          RM {listing.pricePerNight} <span className="text-sm font-semibold text-slate-500">per night</span>
         </p>
         
         <div ref={pickerControlsRef} className="relative mt-5 grid grid-cols-2 rounded-2xl border border-slate-200">

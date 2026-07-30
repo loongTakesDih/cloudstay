@@ -48,7 +48,7 @@ function SavedPlacesPage() {
                 </button>
                 <h2 className="mt-4 truncate text-lg font-bold">{place.title}</h2>
                 <p className="mt-1 truncate text-sm text-slate-500">{place.location}</p>
-                {place.pricePerNight && <p className="mt-2 font-bold">RM {place.pricePerNight} <span className="font-normal text-slate-500">night</span></p>}
+                {place.pricePerNight && <p className="mt-2 font-bold">RM {place.pricePerNight} <span className="font-normal text-slate-500">per night</span></p>}
               </article>
             ))}
           </div>
