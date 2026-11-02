@@ -9,7 +9,7 @@ CloudStay is a property booking and rental management web application built for 
 - Database: PostgreSQL
 - Development DB: NeonDB
 - Cloud Deployment: AWS EC2 / Elastic Beanstalk
-- Future Cloud Services: S3, Lambda, API Gateway, SNS/SQS, CloudWatch
+- Future Cloud Services: S3, Lambda, API Gateway, SNS/SQS, CloudWatch.
 
 ## Project Structure
 
