@@ -19,8 +19,6 @@ cloudstay/
 ├── server/
 └── docs/
 
-bleh
-
 
 To initiate Server:
 
